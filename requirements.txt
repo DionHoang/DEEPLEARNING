@@ -1,0 +1,14 @@
+# NER Project Dependencies
+torch
+transformers
+numpy
+pandas
+matplotlib
+seqeval
+scikit-learn
+pytorch-crf
+streamlit
+pyvi
+gradio
+torchao 
+peft
