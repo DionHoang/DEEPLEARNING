@@ -1,0 +1,89 @@
+% ==============================================================================
+% PHẦN PHƯƠNG PHÁP LUẬN: KIẾN TRÚC TRANSFORMER, CƠ CHẾ ATTENTION VÀ GIẢI THUẬT LORA
+% ==============================================================================
+
+\section{Phương pháp luận (Methodology)}
+\label{sec:methodology}
+
+Trong nghiên cứu này, chúng tôi đề xuất hệ thống nhận diện thực thể tiếng Việt (PhoNER) sử dụng kiến trúc mô hình ngôn ngữ lớn dựa trên Transformer, cụ thể là PhoBERT \cite{phobert}, kết hợp với kỹ thuật thích ứng tham số hiệu quả thích ứng rank thấp (Low-Rank Adaptation - LoRA) nhằm tối ưu hóa hiệu năng và tài nguyên tính toán.
+
+\subsection{Kiến trúc Transformer \& PhoBERT}
+Kiến trúc Transformer dựa trên cơ chế tự chú ý (Self-Attention) loại bỏ hoàn toàn các lớp tuần hoàn (RNN) truyền thống, cho phép xử lý song song toàn bộ các phần tử trong chuỗi đầu vào. Mô hình PhoBERT thừa hưởng thiết kế từ kiến trúc RoBERTa (Robustly Optimized BERT Approach) \cite{roberta}, sử dụng phương pháp tiền huấn luyện Masked Language Modeling (MLM) trên tập ngữ liệu tiếng Việt quy mô lớn chứa khoảng 20GB văn bản thô.
+
+Đối với bài toán Nhận diện Thực thể (Named Entity Recognition - NER), một câu đầu vào $X = (x_1, x_2, \dots, x_N)$ gồm $N$ từ được đưa qua bộ mã hóa PhoBERT để trích xuất biểu diễn đặc trưng ở cấp độ token. Biểu diễn của token thứ $i$ tại lớp đầu ra cuối cùng của Transformer được ký hiệu là $\mathbf{h}_i \in \mathbb{R}^{d_{model}}$, với $d_{model} = 768$ đối với phiên bản PhoBERT-base.
+
+Để thực hiện phân loại thực thể cho từng token, chúng tôi tích hợp thêm một tầng phân loại tuyến tính (Linear Classifier Classifier Head) chiếu biểu diễn ẩn $\mathbf{h}_i$ từ không gian ẩn của Transformer sang không gian nhãn thực thể có số chiều là $C$ (với $C = 20$ tương ứng với tập nhãn PhoNER-COVID19):
+\begin{equation}
+    \mathbf{y}_i = \text{Softmax}(\mathbf{W}_c \mathbf{h}_i + \mathbf{b}_c)
+\end{equation}
+trong đó $\mathbf{W}_c \in \mathbb{R}^{C \times d_{model}}$ và $\mathbf{b}_c \in \mathbb{R}^C$ là các tham số của tầng phân loại tuyến tính.
+
+\subsection{Cơ chế Tự chú ý Đa đầu (Multi-Head Self-Attention)}
+Trọng tâm sức mạnh biểu diễn của Transformer nằm ở cơ chế chú ý tích vô hướng chuẩn hóa (Scaled Dot-Product Attention). Cho một ma trận đầu vào $\mathbf{X}$, mô hình thực hiện các phép chiếu tuyến tính để tạo ra các ma trận Truy vấn (Query - $\mathbf{Q}$), Khóa (Key - $\mathbf{K}$) và Giá trị (Value - $\mathbf{V}$):
+\begin{equation}
+    \mathbf{Q} = \mathbf{X}\mathbf{W}^Q, \quad \mathbf{K} = \mathbf{X}\mathbf{W}^K, \quad \mathbf{V} = \mathbf{X}\mathbf{W}^V
+\end{equation}
+Trong đó $\mathbf{W}^Q, \mathbf{W}^K \in \mathbb{R}^{d_{model} \times d_k}$ và $\mathbf{W}^V \in \mathbb{R}^{d_{model} \times d_v}$. Hàm chú ý được định nghĩa toán học như sau:
+\begin{equation}
+    \text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{Softmax}\left(\frac{\mathbf{Q}\mathbf{K}^T}{\sqrt{d_k}}\right)\mathbf{V}
+\end{equation}
+với hệ số $\sqrt{d_k}$ đóng vai trò điều hòa, tránh việc tích vô hướng nhận giá trị quá lớn làm triệt tiêu gradient của hàm Softmax.
+
+Để mô hình có thể đồng thời chú ý đến thông tin từ các không gian biểu diễn khác nhau tại các vị trí khác nhau, cơ chế chú ý đa đầu (Multi-Head Attention) được áp dụng bằng cách chia không gian chú ý thành $h$ phần riêng biệt độc lập (với $h = 12$ ở PhoBERT-base):
+\begin{equation}
+    \text{MultiHead}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{Concat}(\text{head}_1, \text{head}_2, \dots, \text{head}_h)\mathbf{W}^O
+\end{equation}
+\begin{equation}
+    \text{với} \quad \text{head}_i = \text{Attention}(\mathbf{Q}\mathbf{W}_i^Q, \mathbf{K}\mathbf{W}_i^K, \mathbf{V}\mathbf{W}_i^V)
+\end{equation}
+trong đó các ma trận chiếu tham số $\mathbf{W}_i^Q \in \mathbb{R}^{d_{model} \times d_k}$, $\mathbf{W}_i^K \in \mathbb{R}^{d_{model} \times d_k}$, $\mathbf{W}_i^V \in \mathbb{R}^{d_{model} \times d_v}$ và $\mathbf{W}^O \in \mathbb{R}^{h d_v \times d_{model}}$.
+
+\subsection{Giải thuật Thích ứng Tham số Hiệu quả LoRA (Low-Rank Adaptation)}
+Mặc dù việc tinh chỉnh toàn bộ mô hình (Full Fine-tuning) mang lại độ chính xác cao, quá trình này đòi hỏi tài nguyên tính toán cực kỳ lớn (GPU VRAM) và thời gian huấn luyện lâu. Để giải quyết hạn chế này, chúng tôi ứng dụng giải thuật LoRA \cite{lora} giúp tối ưu hóa bộ nhớ đáng kể.
+
+Giải thuật LoRA giả định rằng các thay đổi trọng số trong quá trình thích ứng mô hình có ``hạng nội tại'' (intrinsic rank) thấp. Đối với một lớp tuyến tính có trọng số ban đầu $\mathbf{W}_0 \in \mathbb{R}^{d \times k}$, thay vì cập nhật trực tiếp toàn bộ các phần tử của $\mathbf{W}_0$, LoRA đóng băng $\mathbf{W}_0$ và phân rã ma trận cập nhật trọng số $\Delta \mathbf{W}$ thành tích của hai ma trận rank thấp $\mathbf{B}$ và $\mathbf{A}$:
+\begin{equation}
+    \mathbf{W} = \mathbf{W}_0 + \Delta \mathbf{W} = \mathbf{W}_0 + \frac{\alpha}{r} \mathbf{B}\mathbf{A}
+\end{equation}
+trong đó $\mathbf{B} \in \mathbb{R}^{d \times r}$ và $\mathbf{A} \in \mathbb{R}^{r \times k}$ với hạng $r \ll \min(d, k)$ là siêu tham số cấu hình. Hệ số $\frac{\alpha}{r}$ là hằng số tỉ lệ giúp cân bằng đóng góp của nhánh thích ứng mới, với $\alpha$ thường được cấu hình cố định tương ứng với giá trị $r$ ban đầu.
+
+\begin{figure}[htbp]
+    \centering
+    % Sơ đồ minh họa kiến trúc LoRA phân rã ma trận cập nhật
+    \begin{tikzpicture}[scale=0.8, every node/.style={transform shape}]
+        % Khối mô hình cơ sở đóng băng
+        \draw[fill=blue!10, draw=blue!50, thick, rounded corners] (-2.5, 0) rectangle (-0.5, 3);
+        \node at (-1.5, 1.5) [align=center] {\textbf{Trọng số cơ sở} \\ $\mathbf{W}_0 \in \mathbb{R}^{d \times k}$ \\ (Đóng băng)};
+        
+        % Nhánh cập nhật LoRA
+        \draw[fill=orange!15, draw=orange!60, thick] (0.5, 2) -- (2.5, 2) -- (2.0, 3) -- (1.0, 3) -- cycle;
+        \node at (1.5, 2.5) {\textbf{Ma trận B} ($d \times r$)};
+        
+        \draw[fill=orange!15, draw=orange!60, thick] (1.0, 0) -- (2.0, 0) -- (2.5, 1) -- (0.5, 1) -- cycle;
+        \node at (1.5, 0.5) {\textbf{Ma trận A} ($r \times k$)};
+        
+        % Đầu vào và đầu ra
+        \draw[->, thick] (-1.5, -1) -- (-1.5, 0);
+        \draw[->, thick] (1.5, -1) -- (1.5, 0);
+        \node at (0, -1.3) {\textbf{Đầu vào} $\mathbf{x}$};
+        
+        \draw[->, thick] (-1.5, 3) -- (-1.5, 4) -- (-0.2, 4);
+        \draw[->, thick] (1.5, 3) -- (1.5, 4) -- (0.2, 4);
+        
+        \draw[thick] (0, 4) circle (0.2);
+        \node at (0, 4) {\textbf{+}};
+        
+        \draw[->, thick] (0, 4.2) -- (0, 4.8);
+        \node at (0, 5.1) {\textbf{Đầu ra} $\mathbf{h} = \mathbf{W}_0\mathbf{x} + \Delta\mathbf{W}\mathbf{x}$};
+    \end{tikzpicture}
+    \caption{Sơ đồ phân rã toán học của thuật toán Low-Rank Adaptation (LoRA) tích hợp song song với lớp chiếu tuyến tính đóng băng.}
+    \label{fig:lora_architecture}
+\end{figure}
+
+Trong quá trình huấn luyện:
+\begin{enumerate}
+    \item Ma trận $\mathbf{A}$ được khởi tạo theo phân phối chuẩn Gaussian $\mathcal{N}(0, \sigma^2)$.
+    \item Ma trận $\mathbf{B}$ được khởi tạo bằng $0$. Điều này đảm bảo tại thời điểm bắt đầu huấn luyện $\Delta \mathbf{W} = \mathbf{B}\mathbf{A} = 0$, nghĩa là đầu ra của lớp thích ứng không ảnh hưởng đến hoạt động ban đầu của mô hình ngôn ngữ pre-trained.
+    \item Chỉ các ma trận $\mathbf{A}$, $\mathbf{B}$ và tầng phân loại tuyến tính $\mathbf{W}_c$ được cập nhật gradient. Nhờ đó, số lượng tham số cần tối ưu giảm tới hơn $99\%$ so với fine-tuning toàn bộ mô hình, giúp tiết kiệm đáng kể bộ nhớ VRAM của GPU và tăng tốc độ hội tụ.
+\end{enumerate}
+Trong thực nghiệm của chúng tôi, LoRA được áp dụng trực tiếp cho các phép chiếu Truy vấn ($\mathbf{W}^Q$) và Giá trị ($\mathbf{W}^V$) thuộc khối Self-Attention của PhoBERT, với cấu hình siêu tham số tối ưu $r=8$, $\alpha=16$.

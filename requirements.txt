@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # NER Project Dependencies
 torch
 transformers
@@ -12,3 +13,29 @@ pyvi
 gradio
 torchao 
 peft
+=======
+# Core Deep Learning Libraries
+torch>=2.0.0
+torchvision
+
+# Hugging Face NLP Ecosystem
+transformers>=4.30.0
+peft>=0.4.0
+tokenizers>=0.13.0
+safetensors
+
+# Vietnamese NLP Word Segmentation
+underthesea>=6.0.0
+pyvi>=0.1.1
+
+# Web Application Demo
+gradio>=4.0.0
+
+# Scientific computing and utilities
+numpy>=1.20.0
+pandas>=1.3.0
+scikit-learn
+tqdm
+matplotlib
+seaborn
+>>>>>>> Stashed changes

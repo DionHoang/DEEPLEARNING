@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # Cấu hình các siêu tham số, đường dẫn
 import os
 
@@ -72,3 +73,75 @@ LORA_LEARNING_RATE = 5e-4     # LR cao hơn cho LoRA vì ít tham số hơn
 KD_TEMPERATURE = 3.0          # Nhiệt độ cho soft labels
 KD_ALPHA = 0.5                # Trọng số giữa hard loss và soft loss
 KD_STUDENT_HIDDEN_DIM = 128   # Hidden dim nhỏ hơn cho student model
+=======
+import os
+
+# ==============================================================================
+# System Hyperparameters
+# ==============================================================================
+MAX_SEQ_LENGTH = 256
+BATCH_SIZE = 16
+EPOCHS = 10
+LEARNING_RATE = 2e-5
+WEIGHT_DECAY = 0.01
+SEED = 42
+
+# Pretrained Transformer model name (from HuggingFace)
+PRETRAINED_MODEL_NAME = "vinai/phobert-base"
+
+# ==============================================================================
+# LoRA (Low-Rank Adaptation) Hyperparameters
+# ==============================================================================
+LORA_R = 8
+LORA_ALPHA = 16
+LORA_DROPOUT = 0.1
+
+# ==============================================================================
+# Knowledge Distillation (KD) Parameters
+# ==============================================================================
+KD_TEMPERATURE = 3.0
+KD_ALPHA = 0.5
+
+# ==============================================================================
+# Dataset Tags Mapping (PhoNER-COVID19)
+# ==============================================================================
+TAGS = [
+    "O",
+    "B-AGE",
+    "B-DATE",
+    "B-GENDER",
+    "B-JOB",
+    "B-LOCATION",
+    "B-NAME",
+    "B-ORGANIZATION",
+    "B-PATIENT_ID",
+    "B-SYMPTOM_AND_DISEASE",
+    "B-TRANSPORTATION",
+    "I-AGE",
+    "I-DATE",
+    "I-JOB",
+    "I-LOCATION",
+    "I-NAME",
+    "I-ORGANIZATION",
+    "I-PATIENT_ID",
+    "I-SYMPTOM_AND_DISEASE",
+    "I-TRANSPORTATION"
+]
+
+TAG2IDX = {tag: idx for idx, tag in enumerate(TAGS)}
+IDX2TAG = {idx: tag for idx, tag in enumerate(TAGS)}
+NUM_LABELS = len(TAGS)
+
+# ==============================================================================
+# Directory Paths
+# ==============================================================================
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_RAW_DIR = os.path.join(BASE_DIR, "DATA")
+DATA_PROCESSED_DIR = os.path.join(DATA_RAW_DIR, "processed")
+MODEL_SAVE_DIR = os.path.join(BASE_DIR, "saved_models")
+RESULTS_DIR = os.path.join(BASE_DIR, "results")
+
+# Ensure necessary directories exist
+os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
+os.makedirs(RESULTS_DIR, exist_ok=True)
+>>>>>>> Stashed changes

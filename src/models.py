@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # Định nghĩa kiến trúc mô hình
 import torch
 import torch.nn as nn
@@ -203,3 +204,131 @@ class StudentLSTM(nn.Module):
     
     def decode(self, logits, attention_mask=None):
         return torch.argmax(logits, dim=2).tolist()
+=======
+import torch
+import torch.nn as nn
+from transformers import AutoModel
+from src.config import PRETRAINED_MODEL_NAME, NUM_LABELS
+
+class PhoBERTNER(nn.Module):
+    """
+    Standard PhoBERT Named Entity Recognition Model.
+    Uses pre-trained vinai/phobert-base combined with a customized Linear Classifier.
+    """
+    def __init__(self, model_name=PRETRAINED_MODEL_NAME, num_labels=NUM_LABELS):
+        super(PhoBERTNER, self).__init__()
+        self.num_labels = num_labels
+        
+        # Load pre-trained PhoBERT backbone
+        self.phobert = AutoModel.from_pretrained(model_name)
+        
+        # Classifier Dropout
+        self.dropout = nn.Dropout(0.1)
+        
+        # Linear Classifier Head
+        self.classifier = nn.Linear(self.phobert.config.hidden_size, num_labels)
+        
+    def forward(self, input_ids, attention_mask, labels=None):
+        """
+        Forward pass for Token Classification.
+        
+        Args:
+            input_ids (torch.Tensor): Tokenized sequence indices [batch_size, seq_length]
+            attention_mask (torch.Tensor): Attention mask [batch_size, seq_length]
+            labels (torch.Tensor, optional): Ground-truth NER tag indices [batch_size, seq_length]
+            
+        Returns:
+            dict: Dictionary containing:
+                - 'logits' (torch.Tensor): Raw classification logits [batch_size, seq_length, num_labels]
+                - 'loss' (torch.Tensor, optional): Token classification loss
+        """
+        # Get representations from PhoBERT
+        outputs = self.phobert(input_ids=input_ids, attention_mask=attention_mask)
+        sequence_output = outputs[0]  # Shape: [batch_size, seq_length, hidden_size]
+        
+        # Apply dropout
+        sequence_output = self.dropout(sequence_output)
+        
+        # Linear projection to get logits
+        logits = self.classifier(sequence_output)  # Shape: [batch_size, seq_length, num_labels]
+        
+        loss = None
+        if labels is not None:
+            loss_fct = nn.CrossEntropyLoss()
+            # Calculate loss only for non-padding active tokens
+            if attention_mask is not None:
+                active_loss = attention_mask.view(-1) == 1
+                active_logits = logits.view(-1, self.num_labels)
+                active_labels = torch.where(
+                    active_loss, 
+                    labels.view(-1), 
+                    torch.tensor(loss_fct.ignore_index).type_as(labels)
+                )
+                loss = loss_fct(active_logits, active_labels)
+            else:
+                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+                
+        return {"loss": loss, "logits": logits}
+
+class PhoBERTLoRANER(nn.Module):
+    """
+    Memory-efficient PhoBERT Named Entity Recognition Model.
+    Applies Low-Rank Adaptation (LoRA) via Hugging Face PEFT, freezing base model parameters
+    and only training low-rank adapters and the linear classification head.
+    """
+    def __init__(
+        self, 
+        model_name=PRETRAINED_MODEL_NAME, 
+        num_labels=NUM_LABELS, 
+        r=8, 
+        lora_alpha=16, 
+        lora_dropout=0.1
+    ):
+        super(PhoBERTLoRANER, self).__init__()
+        
+        # 1. Initialize base model (PhoBERT + Linear Classifier Head)
+        self.base_model = PhoBERTNER(model_name=model_name, num_labels=num_labels)
+        
+        # 2. Configure and apply LoRA wrapper on the PhoBERT backbone
+        try:
+            from peft import LoraConfig, get_peft_model
+            
+            peft_config = LoraConfig(
+                r=r,
+                lora_alpha=lora_alpha,
+                target_modules=["query", "value"],  # Focus on key attention matrices
+                lora_dropout=lora_dropout,
+                bias="none"
+            )
+            
+            # Wrap standard phobert with LoRA, freezing its weights
+            self.base_model.phobert = get_peft_model(self.base_model.phobert, peft_config)
+            print("Successfully initialized PhoBERT LoRA configuration.")
+            
+        except ImportError:
+            print("[Warning] 'peft' library is not installed. Running PhoBERTLoRANER "
+                  "in full fine-tuning fallback mode without parameter freezing.")
+            
+    def forward(self, input_ids, attention_mask, labels=None):
+        """
+        Forward pass.
+        """
+        return self.base_model(input_ids, attention_mask, labels)
+        
+    def print_trainable_parameters(self):
+        """
+        Helper method to output statistics of trainable vs frozen parameters.
+        """
+        trainable_params = 0
+        all_param = 0
+        for _, param in self.named_parameters():
+            all_param += param.numel()
+            if param.requires_grad:
+                trainable_params += param.numel()
+                
+        print(
+            f"Trainable params: {trainable_params:,} | "
+            f"All params: {all_param:,} | "
+            f"Trainable (%): {100 * trainable_params / all_param:.4f}%"
+        )
+>>>>>>> Stashed changes
