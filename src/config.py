@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 import os
 
 # --- Path Configurations ---
@@ -20,16 +19,25 @@ os.makedirs(PLOT_DIR, exist_ok=True)
 # Exactly matching unique tags found in the PhoNER_COVID19 dataset
 LABEL_LIST = [
     "O",
-    "B-ORGANIZATION", "I-ORGANIZATION",
-    "B-SYMPTOM_AND_DISEASE", "I-SYMPTOM_AND_DISEASE",
-    "B-LOCATION", "I-LOCATION",
-    "B-DATE", "I-DATE",
-    "B-PATIENT_ID", "I-PATIENT_ID",
-    "B-AGE", "I-AGE",
-    "B-NAME", "I-NAME",
-    "B-JOB", "I-JOB",
-    "B-TRANSPORTATION", "I-TRANSPORTATION",
-    "B-GENDER"
+    "B-ORGANIZATION",
+    "I-ORGANIZATION",
+    "B-SYMPTOM_AND_DISEASE",
+    "I-SYMPTOM_AND_DISEASE",
+    "B-LOCATION",
+    "I-LOCATION",
+    "B-DATE",
+    "I-DATE",
+    "B-PATIENT_ID",
+    "I-PATIENT_ID",
+    "B-AGE",
+    "I-AGE",
+    "B-NAME",
+    "I-NAME",
+    "B-JOB",
+    "I-JOB",
+    "B-TRANSPORTATION",
+    "I-TRANSPORTATION",
+    "B-GENDER",
 ]
 
 LABEL2ID = {label: idx for idx, label in enumerate(LABEL_LIST)}
@@ -64,19 +72,3 @@ KD_ALPHA = 0.5
 
 # --- Quantization Configurations ---
 QUANTIZE_BITS = 8
-=======
-import torch
-
-class Config:
-    def __init__(self):
-        self.model_name = "vinai/phobert-base"
-        self.max_len = 256
-        self.batch_size = 16
-        self.learning_rate = 2e-5
-        self.epochs = 5
-        self.use_crf = False
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-def get_config(args):
-    return Config()
->>>>>>> Stashed changes

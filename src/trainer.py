@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 try:
-    import wandb
+    import wandb  # type: ignore
 
     _HAS_WANDB = True
 except Exception:
@@ -297,7 +297,7 @@ class QuantizationTrainer(BaseTrainer):
     def prepare_qat(self):
         if not self.quantize_utils:
             raise RuntimeError("quantize_utils not provided")
-        # Gọi helper của bạn để cấu hình qconfig và chèn FakeQuantize nodes
+        # Call your helper to configure qconfig and insert FakeQuantize nodes
         self.model = self.quantize_utils.prepare_qat(self.model)
         try:
             self.logger.info("Model prepared for QAT (FakeQuant nodes attached)")
@@ -316,7 +316,7 @@ class QuantizationTrainer(BaseTrainer):
             except Exception as e:
                 self.logger.warning("Failed to move model to CPU for convert: %s", e)
 
-        # Gọi helper của bạn để biến đổi mô hình sang cấu trúc INT8 thực tế
+        # Call your helper to convert the model to physical INT8 structure
         qmodel = self.quantize_utils.convert_qat(model_for_convert)
         try:
             self.logger.info("Model converted from QAT to real INT8 quantized version")
@@ -333,17 +333,17 @@ class QuantizationTrainer(BaseTrainer):
         early_stop: Optional[int] = None,
         log_interval: int = 50,
     ):
-        """Thực hiện toàn bộ quy trình QAT khép kín."""
-        self.logger.info("=== BẮT ĐẦU QUY TRÌNH QUANTIZATION AWARE TRAINING (QAT) ===")
+        """Execute the complete QAT pipeline."""
+        self.logger.info("=== STARTING QUANTIZATION AWARE TRAINING (QAT) PIPELINE ===")
 
-        # Bước 1: Tự động chuyển đổi mô hình sang trạng thái QAT (nếu chưa gọi ngoài)
-        # Kiểm tra xem mô hình đã có thuộc tính qconfig chưa, nếu chưa thì tự kích hoạt
+        # Step 1: Automatically convert model to QAT state (if not already done)
+        # Check if model has qconfig attribute, if not, activate it
         if not hasattr(self.model, "qconfig") or self.model.qconfig is None:
             self.logger.info("Auto-preparing model for QAT...")
             self.prepare_qat()
 
-        # Bước 2: Kế thừa hàm train gốc của BaseTrainer để fine-tune mô hình với lỗi lượng tử hóa giả lập
-        # Hàm này sẽ tự động handle TensorBoard, Logging, Early stopping, Checkpoint
+        # Step 2: Inherit original train function from BaseTrainer to fine-tune with simulated quantization error
+        # This function will automatically handle TensorBoard, Logging, Early stopping, Checkpoint
         results = super().train(
             train_loader=train_loader,
             val_loader=val_loader,
@@ -353,18 +353,18 @@ class QuantizationTrainer(BaseTrainer):
             log_interval=log_interval,
         )
 
-        # Bước 3: Sau khi train xong, load lại checkpoint tốt nhất (best_path) để convert
+        # Step 3: After training, load the best checkpoint (best_path) for conversion
         if results.get("best_path") and os.path.exists(results["best_path"]):
             self.logger.info(
                 f"Loading best checkpoint for final conversion: {results['best_path']}"
             )
             self.load_checkpoint(results["best_path"])
 
-        # Bước 4: Convert sang mô hình INT8 thực tế
+        # Step 4: Convert to actual INT8 model
         self.logger.info("Converting fine-tuned QAT model to physical INT8 model...")
         quantized_model = self.convert_qat()
 
-        # Bước 5: Đánh giá độ chính xác cuối cùng của mô hình INT8 thật
+        # Step 5: Final accuracy evaluation of the physical INT8 model
         if val_loader is not None:
             # Evaluate the quantized model without swapping `self.model` in-place.
             # Determine device of quantized_model (most likely CPU if conversion forced).
@@ -382,12 +382,12 @@ class QuantizationTrainer(BaseTrainer):
             )
 
             try:
-                self.logger.info("--- KẾT QUẢ CUỐI CÙNG ---")
+                self.logger.info("--- FINAL RESULTS ---")
                 self.logger.info(
-                    f"Độ chính xác / Loss của mô hình INT8 trên tập Val: {final_metrics}"
+                    f"Accuracy / Loss of INT8 model on Val set: {final_metrics}"
                 )
             except Exception as e:
                 self.logger.warning("Logging final quantized metrics failed: %s", e)
 
-        # Trả về mô hình đã nén để người dùng đem đi deploy (.pt / torchscript)
+        # Return the compressed model for deployment (.pt / torchscript)
         return quantized_model
