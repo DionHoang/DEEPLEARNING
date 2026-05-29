@@ -58,7 +58,7 @@ def compute_metrics(preds, labels, label_list, ignore_index=-100):
     """
     id2label = {i: l for i, l in enumerate(label_list)}
 
-    # Lọc bỏ các vị trí ignore
+    # Filter out ignore positions
     filtered_preds = []
     filtered_labels = []
     for p, l in zip(preds, labels):
@@ -66,11 +66,11 @@ def compute_metrics(preds, labels, label_list, ignore_index=-100):
             filtered_preds.append(p)
             filtered_labels.append(l)
 
-    # Chuyển đổi sang tên nhãn
+    # Convert to label names
     true_label_names = [id2label.get(l, "O") for l in filtered_labels]
     pred_label_names = [id2label.get(p, "O") for p in filtered_preds]
 
-    # Tạo report
+    # Create report
     report = classification_report(
         true_label_names, pred_label_names, output_dict=True, zero_division=0
     )
@@ -146,7 +146,7 @@ def compute_entity_level_metrics(preds_sequences, labels_sequences, id2label):
             entity_type_stats[etype]["fp"] += len(type_pred - type_true)
             entity_type_stats[etype]["fn"] += len(type_true - type_pred)
 
-    # Tính overall
+    # Calculate overall metrics
     precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
     recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
     f1 = (
@@ -258,11 +258,11 @@ def plot_confusion_matrix(preds, labels, label_list, save_path, ignore_index=-10
         return
     f_preds, f_labels = zip(*filtered)
 
-    # Chỉ lấy các nhãn thực thể (bỏ O)
+    # Extract only entity labels (exclude 'O')
     entity_labels = [l for l in label_list if l != "O"]
     entity_ids = [label_list.index(l) for l in entity_labels]
 
-    # Lọc chỉ lấy các mẫu có nhãn thực thể (true hoặc pred)
+    # Filter to keep only samples with entity labels (true or pred)
     mask = [(l in entity_ids or p in entity_ids) for p, l in zip(f_preds, f_labels)]
     if not any(mask):
         return
@@ -463,11 +463,11 @@ def calculate_label_weights(train_file, label2id):
     weights = []
     for label in sorted(label2id, key=label2id.get):
         count = counts[label]
-        # Thêm 1e-5 để tránh chia cho 0
+        # Add 1e-5 to avoid division by zero
         w = total / (count + 1e-5)
         weights.append(w)
 
-    # Chuẩn hóa trọng số
+    # Normalize weights
     weights = torch.tensor(weights, dtype=torch.float)
     weights = weights / weights.mean()
     return weights
@@ -495,7 +495,7 @@ def get_error_analysis(sentences, true_labels, pred_labels, id2label, num_sample
         Maximum number of error sentences to print (default: 5).
     """
     print(f"\n{'='*50}")
-    print(" PHÂN TÍCH LỖI (ERROR ANALYSIS)")
+    print(" ERROR ANALYSIS")
     print(f"{'='*50}")
     errors_found = 0
 
@@ -506,7 +506,7 @@ def get_error_analysis(sentences, true_labels, pred_labels, id2label, num_sample
         has_error = False
         sent_errors = []
         for i, (t, p) in enumerate(zip(trues, preds)):
-            # Bỏ qua các nhãn padding (-100) và nhãn đúng
+            # Skip padding labels (-100) and correct predictions
             if t != p and t != -100:
                 has_error = True
                 sent_errors.append(
@@ -518,10 +518,10 @@ def get_error_analysis(sentences, true_labels, pred_labels, id2label, num_sample
                 )
 
         if has_error:
-            print(f"Câu: {' '.join(sent)}")
+            print(f"Sentence: {' '.join(sent)}")
             for detail in sent_errors:
                 print(
-                    f"  -> Từ: '{detail['word']}' | Nhãn gốc: {detail['true']} | Dự đoán: {detail['pred']}"
+                    f"  -> Word: '{detail['word']}' | True Label: {detail['true']} | Predicted: {detail['pred']}"
                 )
             print("-" * 30)
             errors_found += 1
