@@ -1,10 +1,10 @@
 import os
-import time
 from typing import Optional, Dict
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -20,13 +20,14 @@ from .utils import setup_logger, print_model_size
 
 
 class BaseTrainer:
+
     def __init__(
         self,
         model: nn.Module,
         optimizer: optim.Optimizer,
         criterion: nn.Module,
         device: torch.device,
-        scheduler: Optional[optim.lr_scheduler._LRScheduler] = None,
+        scheduler: Optional[LRScheduler] = None,
         save_dir: str = "results/checkpoints",
         run_name: Optional[str] = None,
     ):
@@ -63,6 +64,8 @@ class BaseTrainer:
             "model_state": self.model.state_dict(),
             "optimizer_state": self.optimizer.state_dict(),
         }
+        if self.scheduler:
+            state["scheduler_state"] = self.scheduler.state_dict()
         if extra:
             state.update(extra)
         torch.save(state, path)
@@ -72,18 +75,44 @@ class BaseTrainer:
             self.logger.warning("Failed logging checkpoint save: %s", e)
         return path
 
-    def load_checkpoint(self, path: str, map_location: Optional[torch.device] = None):
-        ckpt = torch.load(path, map_location=map_location or self.device)
+    def load_checkpoint(
+        self,
+        path: str,
+        map_location: Optional[torch.device] = None,
+    ):
+        ckpt = torch.load(
+            path,
+            map_location=map_location or self.device,
+        )
+
         self.model.load_state_dict(ckpt["model_state"])
+
         if "optimizer_state" in ckpt:
             try:
                 self.optimizer.load_state_dict(ckpt["optimizer_state"])
             except (ValueError, RuntimeError) as e:
-                self.logger.warning("Failed to load optimizer state: %s", e)
+                self.logger.warning(
+                    "Failed to load optimizer state: %s",
+                    e,
+                )
+
+        if self.scheduler is not None and "scheduler_state" in ckpt:
+            try:
+                self.scheduler.load_state_dict(ckpt["scheduler_state"])
+            except (ValueError, RuntimeError) as e:
+                self.logger.warning(
+                    "Failed to load scheduler state: %s",
+                    e,
+                )
+
         try:
             self.logger.info(f"Loaded checkpoint: {path}")
         except Exception as e:
-            self.logger.warning("Failed logging checkpoint load: %s", e)
+            self.logger.warning(
+                "Failed logging checkpoint load: %s",
+                e,
+            )
+
         return ckpt
 
     def evaluate(self, dataloader: DataLoader) -> Dict:
@@ -96,24 +125,42 @@ class BaseTrainer:
         dataloader: DataLoader,
         device: Optional[torch.device] = None,
     ) -> Dict:
-        """Evaluate an arbitrary model on a dataloader using the given device.
-
-        This avoids swapping `self.model` in-place when evaluating transformed/quantized copies.
-        """
         device = device or self.device
         model = model.to(device)
         model.eval()
+
         total_loss = 0.0
-        n_batches = 0
+        total_samples = 0
+
         with torch.no_grad():
             for batch in dataloader:
                 inputs = batch[0].to(device)
                 labels = batch[1].to(device)
+
                 outputs = model(inputs)
                 loss = self.criterion(outputs, labels)
-                total_loss += loss.item()
-                n_batches += 1
-        return {"loss": total_loss / max(1, n_batches)}
+
+                batch_size = labels.size(0)
+
+                total_loss += loss.item() * batch_size
+                total_samples += batch_size
+
+        return {"loss": total_loss / max(1, total_samples)}
+
+    def on_train_start(self):
+        pass
+
+    def on_train_end(self, results):
+        return results
+
+    def training_step(self, batch):
+        inputs = batch[0].to(self.device)
+        labels = batch[1].to(self.device)
+
+        outputs = self.model(inputs)
+        loss = self.criterion(outputs, labels)
+
+        return loss
 
     def train(
         self,
@@ -123,79 +170,183 @@ class BaseTrainer:
         grad_clip: Optional[float] = None,
         early_stop: Optional[int] = None,
         log_interval: int = 50,
-    ):
-        self.logger.info(f"Starting training: epochs={epochs}")
-        best_val = float("inf")
+    ) -> Dict:
+        self.on_train_start()
+
+        best_val = None
         best_path = None
         no_improve = 0
+
         for epoch in range(1, epochs + 1):
+
             self.model.train()
             epoch_loss = 0.0
+            total_samples = 0
+
             progress = tqdm(
-                enumerate(train_loader), total=len(train_loader), desc=f"Epoch {epoch}"
+                enumerate(train_loader),
+                total=len(train_loader),
+                desc=f"Epoch {epoch}",
             )
+
             for step, batch in progress:
-                inputs = batch[0].to(self.device)
-                labels = batch[1].to(self.device)
+
                 self.optimizer.zero_grad()
-                outputs = self.model(inputs)
-                loss = self.criterion(outputs, labels)
+
+                loss = self.training_step(batch)
+
                 loss.backward()
+
                 if grad_clip:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(),
+                        grad_clip,
+                    )
+
                 self.optimizer.step()
-                if self.scheduler:
-                    try:
-                        self.scheduler.step()
-                    except Exception as e:
-                        self.logger.warning("Scheduler.step() failed: %s", e)
-                epoch_loss += loss.item()
+
+                batch_size = batch[1].size(0)
+
+                epoch_loss += loss.item() * batch_size
+                total_samples += batch_size
+
                 if step % log_interval == 0:
+
+                    global_step = (epoch - 1) * len(train_loader) + step
+
                     self.writer.add_scalar(
                         "train/batch_loss",
                         loss.item(),
-                        epoch * len(train_loader) + step,
+                        global_step,
                     )
+
                     if _HAS_WANDB:
                         wandb.log({"train/batch_loss": loss.item()})
-                progress.set_postfix(loss=loss.item())
 
-            avg_epoch_loss = epoch_loss / max(1, len(train_loader))
-            self.writer.add_scalar("train/epoch_loss", avg_epoch_loss, epoch)
-            try:
-                self.logger.info(f"Epoch {epoch} train_loss={avg_epoch_loss:.4f}")
-            except Exception as e:
-                self.logger.warning("Logging epoch train loss failed: %s", e)
+                progress.set_postfix(loss=f"{loss.item():.4f}")
+
+            avg_epoch_loss = epoch_loss / max(1, total_samples)
+
+            self.writer.add_scalar(
+                "train/epoch_loss",
+                avg_epoch_loss,
+                epoch,
+            )
+
+            self.logger.info(f"Epoch {epoch} train_loss=" f"{avg_epoch_loss:.4f}")
 
             val_metrics = None
-            if val_loader is not None:
-                val_metrics = self.evaluate(val_loader)
-                self.writer.add_scalar("val/loss", val_metrics.get("loss", 0.0), epoch)
-                try:
-                    self.logger.info(
-                        f"Epoch {epoch} val_loss={val_metrics.get('loss', 0.0):.4f}"
-                    )
-                except Exception as e:
-                    self.logger.warning("Logging epoch val loss failed: %s", e)
-                if _HAS_WANDB:
-                    wandb.log({"val/loss": val_metrics.get("loss", 0.0)})
 
-            # checkpointing
-            extra = {"val_loss": val_metrics.get("loss") if val_metrics else None}
-            path = self.save_checkpoint(epoch, name="model.pt", extra=extra)
-            if val_metrics and val_metrics.get("loss", float("inf")) < best_val:
-                best_val = val_metrics.get("loss")
+            if val_loader is not None:
+
+                val_metrics = self.evaluate(val_loader)
+
+                val_loss = val_metrics.get(
+                    "loss",
+                    float("inf"),
+                )
+
+                self.writer.add_scalar(
+                    "val/loss",
+                    val_loss,
+                    epoch,
+                )
+
+                self.logger.info(f"Epoch {epoch} val_loss={val_loss:.4f}")
+
+                if _HAS_WANDB:
+                    wandb.log({"val/loss": val_loss})
+
+            if self.scheduler is not None:
+
+                try:
+
+                    if isinstance(
+                        self.scheduler,
+                        optim.lr_scheduler.ReduceLROnPlateau,
+                    ):
+
+                        if val_metrics is not None:
+
+                            self.scheduler.step(val_loss)
+
+                        else:
+
+                            self.logger.warning(
+                                "ReduceLROnPlateau requires validation metrics "
+                                "(val_loader is None). Scheduler not updated."
+                            )
+
+                    else:
+
+                        self.scheduler.step()
+
+                except Exception as e:
+
+                    self.logger.warning(
+                        "Scheduler.step() failed: %s",
+                        e,
+                    )
+
+                current_lr = self.optimizer.param_groups[0]["lr"]
+
+                self.writer.add_scalar(
+                    "train/lr",
+                    current_lr,
+                    epoch,
+                )
+
+                if _HAS_WANDB:
+                    wandb.log({"train/lr": current_lr})
+
+            extra = {"val_loss": (val_metrics.get("loss") if val_metrics else None)}
+
+            path = self.save_checkpoint(
+                epoch,
+                name="model.pt",
+                extra=extra,
+            )
+
+            if val_metrics is not None:
+
+                current_val = val_metrics.get(
+                    "loss",
+                    float("inf"),
+                )
+
+            else:
+
+                current_val = avg_epoch_loss
+
+                self.logger.warning(
+                    "Validation loader not provided. "
+                    "Early stopping will monitor training loss."
+                )
+
+            if best_val is None or current_val < best_val:
+
+                best_val = current_val
                 best_path = path
                 no_improve = 0
+
             else:
+
                 no_improve += 1
 
             if early_stop and no_improve >= early_stop:
                 self.logger.info("Early stopping triggered")
                 break
 
-        self.logger.info(f"Training finished. best_val={best_val}")
-        return {"best_path": best_path, "best_val": best_val}
+        results = {
+            "best_path": best_path,
+            "best_val": best_val,
+        }
+
+        results = self.on_train_end(results)
+
+        self.writer.close()
+
+        return results
 
 
 class DistillationTrainer(BaseTrainer):
@@ -225,169 +376,127 @@ class DistillationTrainer(BaseTrainer):
         ce_loss = self.criterion(student_logits, labels)
         return self.alpha * kd_loss + (1.0 - self.alpha) * ce_loss
 
-    def train(
-        self,
-        train_loader: DataLoader,
-        val_loader: Optional[DataLoader] = None,
-        epochs: int = 1,
-        **kwargs,
-    ):
-        best = {"best_val": float("inf"), "best_path": None}
-        for epoch in range(1, epochs + 1):
-            self.model.train()
-            epoch_loss = 0.0
-            for batch in tqdm(train_loader, desc=f"KD Epoch {epoch}"):
-                inputs = batch[0].to(self.device)
-                labels = batch[1].to(self.device)
-                with torch.no_grad():
-                    teacher_logits = self.teacher(inputs)
-                self.optimizer.zero_grad()
-                student_logits = self.model(inputs)
-                loss = self._distillation_loss(student_logits, teacher_logits, labels)
-                loss.backward()
-                self.optimizer.step()
-                epoch_loss += loss.item()
+    def training_step(self, batch):
+        inputs = batch[0].to(self.device)
+        labels = batch[1].to(self.device)
 
-            val_metrics = None
-            if val_loader:
-                val_metrics = self.evaluate(val_loader)
-            path = self.save_checkpoint(
-                epoch,
-                name="student_distilled.pt",
-                extra={"val_loss": val_metrics.get("loss") if val_metrics else None},
-            )
-            try:
-                self.logger.info(
-                    f"KD Epoch {epoch} loss={epoch_loss / max(1, len(train_loader)):.4f}"
-                )
-            except Exception as e:
-                self.logger.warning("Logging KD epoch loss failed: %s", e)
-            if val_metrics and val_metrics.get("loss", float("inf")) < best["best_val"]:
-                best["best_val"] = val_metrics.get("loss")
-                best["best_path"] = path
+        with torch.no_grad():
+            teacher_logits = self.teacher(inputs)
 
-        return best
+        student_logits = self.model(inputs)
+
+        return self._distillation_loss(
+            student_logits,
+            teacher_logits,
+            labels,
+        )
 
 
 class QuantizationTrainer(BaseTrainer):
-    """Trainer wrapper to support Quantization-Aware Training (QAT) flows.
-
-    This class orchestrates preparing the model for QAT, running training on CPU,
-    evaluating with fake quantization, and converting to a real INT8 quantized model.
+    """
+    Trainer wrapper for Quantization Aware Training (QAT).
     """
 
     def __init__(
-        self, *args, quantize_utils=None, force_convert_to_cpu: bool = True, **kwargs
+        self,
+        *args,
+        quantize_utils=None,
+        force_convert_to_cpu: bool = True,
+        **kwargs,
     ):
-        """QuantizationTrainer accepts the same args as BaseTrainer.
-
-        - `force_convert_to_cpu` (default True): keep QAT training on the provided device
-          (GPU if available), but move the model to CPU only when performing final convert.
-        """
-        # Do not force CPU globally; allow QAT to run on GPU if user requested that.
         super().__init__(*args, **kwargs)
+
         self.quantize_utils = quantize_utils
         self.force_convert_to_cpu = force_convert_to_cpu
-        # Ensure model is on the configured training device
+        self.quantized_model = None
+
         try:
             self.model = self.model.to(self.device)
         except Exception as e:
-            self.logger.warning("Failed to move model to device %s: %s", self.device, e)
+            self.logger.warning(
+                "Failed to move model to device %s: %s",
+                self.device,
+                e,
+            )
 
     def prepare_qat(self):
-        if not self.quantize_utils:
+        if self.quantize_utils is None:
             raise RuntimeError("quantize_utils not provided")
-        # Call your helper to configure qconfig and insert FakeQuantize nodes
+
         self.model = self.quantize_utils.prepare_qat(self.model)
-        try:
-            self.logger.info("Model prepared for QAT (FakeQuant nodes attached)")
-        except Exception as e:
-            self.logger.warning("Logging prepare_qat failed: %s", e)
+
+        self.logger.info("Model prepared for QAT " "(FakeQuant nodes attached)")
+
         return self.model
 
     def convert_qat(self):
-        if not self.quantize_utils:
+        if self.quantize_utils is None:
             raise RuntimeError("quantize_utils not provided")
-        # Move to CPU for convert if requested (conversion often expects CPU-backed kernels)
+
         model_for_convert = self.model
+
         if self.force_convert_to_cpu:
             try:
-                model_for_convert = self.model.to(torch.device("cpu"))
-            except Exception as e:
-                self.logger.warning("Failed to move model to CPU for convert: %s", e)
-
-        # Call your helper to convert the model to physical INT8 structure
-        qmodel = self.quantize_utils.convert_qat(model_for_convert)
-        try:
-            self.logger.info("Model converted from QAT to real INT8 quantized version")
-        except Exception as e:
-            self.logger.warning("Logging convert_qat failed: %s", e)
-        return qmodel
-
-    def train(
-        self,
-        train_loader: DataLoader,
-        val_loader: Optional[DataLoader] = None,
-        epochs: int = 1,
-        grad_clip: Optional[float] = None,
-        early_stop: Optional[int] = None,
-        log_interval: int = 50,
-    ):
-        """Execute the complete QAT pipeline."""
-        self.logger.info("=== STARTING QUANTIZATION AWARE TRAINING (QAT) PIPELINE ===")
-
-        # Step 1: Automatically convert model to QAT state (if not already done)
-        # Check if model has qconfig attribute, if not, activate it
-        if not hasattr(self.model, "qconfig") or self.model.qconfig is None:
-            self.logger.info("Auto-preparing model for QAT...")
-            self.prepare_qat()
-
-        # Step 2: Inherit original train function from BaseTrainer to fine-tune with simulated quantization error
-        # This function will automatically handle TensorBoard, Logging, Early stopping, Checkpoint
-        results = super().train(
-            train_loader=train_loader,
-            val_loader=val_loader,
-            epochs=epochs,
-            grad_clip=grad_clip,
-            early_stop=early_stop,
-            log_interval=log_interval,
-        )
-
-        # Step 3: After training, load the best checkpoint (best_path) for conversion
-        if results.get("best_path") and os.path.exists(results["best_path"]):
-            self.logger.info(
-                f"Loading best checkpoint for final conversion: {results['best_path']}"
-            )
-            self.load_checkpoint(results["best_path"])
-
-        # Step 4: Convert to actual INT8 model
-        self.logger.info("Converting fine-tuned QAT model to physical INT8 model...")
-        quantized_model = self.convert_qat()
-
-        # Step 5: Final accuracy evaluation of the physical INT8 model
-        if val_loader is not None:
-            # Evaluate the quantized model without swapping `self.model` in-place.
-            # Determine device of quantized_model (most likely CPU if conversion forced).
-            try:
-                params = list(quantized_model.parameters())
-                q_device = params[0].device if params else torch.device("cpu")
+                model_for_convert = model_for_convert.to(torch.device("cpu"))
             except Exception as e:
                 self.logger.warning(
-                    "Failed to infer quantized model device, falling back to CPU: %s", e
+                    "Failed to move model to CPU " "for conversion: %s",
+                    e,
                 )
-                q_device = torch.device("cpu")
 
-            final_metrics = self.evaluate_model(
-                quantized_model, val_loader, device=q_device
+        qmodel = self.quantize_utils.convert_qat(model_for_convert)
+
+        self.logger.info("Model converted to INT8")
+
+        return qmodel
+
+    def on_train_start(self):
+        self.logger.info("=== STARTING QAT PIPELINE ===")
+
+        if not hasattr(self.model, "qconfig") or self.model.qconfig is None:
+            self.logger.info("Auto preparing model for QAT...")
+
+            self.prepare_qat()
+
+    def on_train_end(self, results):
+
+        best_path = results.get("best_path")
+
+        if best_path is not None and os.path.exists(best_path):
+            self.logger.info(
+                "Loading best checkpoint: %s",
+                best_path,
             )
 
-            try:
-                self.logger.info("--- FINAL RESULTS ---")
-                self.logger.info(
-                    f"Accuracy / Loss of INT8 model on Val set: {final_metrics}"
-                )
-            except Exception as e:
-                self.logger.warning("Logging final quantized metrics failed: %s", e)
+            self.load_checkpoint(best_path)
 
-        # Return the compressed model for deployment (.pt / torchscript)
-        return quantized_model
+        self.logger.info("Converting QAT model to INT8...")
+
+        quantized_model = self.convert_qat()
+
+        self.quantized_model = quantized_model
+
+        results["quantized_model"] = quantized_model
+
+        return results
+
+    def evaluate_quantized(
+        self,
+        dataloader: DataLoader,
+    ):
+        if self.quantized_model is None:
+            raise RuntimeError("Quantized model not available. " "Train first.")
+
+        try:
+            params = list(self.quantized_model.parameters())
+
+            device = params[0].device if len(params) > 0 else torch.device("cpu")
+
+        except Exception:
+            device = torch.device("cpu")
+
+        return self.evaluate_model(
+            self.quantized_model,
+            dataloader,
+            device=device,
+        )
