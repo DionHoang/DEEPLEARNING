@@ -9,13 +9,6 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-try:
-    import wandb  # type: ignore
-
-    _HAS_WANDB = True
-except Exception:
-    _HAS_WANDB = False
-
 from .utils import setup_logger, print_model_size
 
 
@@ -52,8 +45,6 @@ class BaseTrainer:
         except Exception:
             # best-effort only; show exception details for debugging
             self.logger.exception("print_model_size failed")
-        if _HAS_WANDB and run_name:
-            wandb.init(project="ner_project", name=run_name)
 
     def save_checkpoint(
         self, epoch: int, name: str = "checkpoint.pt", extra: Optional[Dict] = None
@@ -158,7 +149,7 @@ class BaseTrainer:
         labels = batch[1].to(self.device)
 
         outputs = self.model(inputs)
-        loss = self.criterion(outputs, labels)
+        loss = self.criterion(outputs, labels, inputs)
 
         return loss
 
@@ -220,9 +211,6 @@ class BaseTrainer:
                         global_step,
                     )
 
-                    if _HAS_WANDB:
-                        wandb.log({"train/batch_loss": loss.item()})
-
                 progress.set_postfix(loss=f"{loss.item():.4f}")
 
             avg_epoch_loss = epoch_loss / max(1, total_samples)
@@ -253,9 +241,6 @@ class BaseTrainer:
                 )
 
                 self.logger.info(f"Epoch {epoch} val_loss={val_loss:.4f}")
-
-                if _HAS_WANDB:
-                    wandb.log({"val/loss": val_loss})
 
             if self.scheduler is not None:
 
@@ -295,9 +280,6 @@ class BaseTrainer:
                     current_lr,
                     epoch,
                 )
-
-                if _HAS_WANDB:
-                    wandb.log({"train/lr": current_lr})
 
             extra = {"val_loss": (val_metrics.get("loss") if val_metrics else None)}
 

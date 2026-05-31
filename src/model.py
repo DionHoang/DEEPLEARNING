@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer
+from .config import LoRAConfig, NUM_LABELS, LABEL2ID
 from peft import LoraConfig, get_peft_model, TaskType
-from .config import LORA_R, LORA_ALPHA, LORA_DROPOUT, NUM_LABELS
 
 
 class CRFLayer(nn.Module):
@@ -255,13 +255,13 @@ class LSTMModel(nn.Module):
         logits = self.classifier(lstm_out)  # (batch_size, seq_len, num_labels)
         return logits
 
-    def crf_loss(self, logits, labels):
+    def crf_loss(self, logits, labels, input_ids=None):
         # Create mask: ignore padding / ignore indices (-100)
         mask = labels != -100
         # For CRF, we replace -100 in labels with 0 so index is valid during score calculation,
         # but the mask ensures these positions do not contribute to score/partition.
         clean_labels = labels.clone()
-        clean_labels[clean_labels == -100] = 0
+        clean_labels[clean_labels == -100] = LABEL2ID.get("O", 0)
         return self.crf(logits, clean_labels, mask)
 
     def decode(self, input_ids):
@@ -315,10 +315,10 @@ class BiLSTMModel(nn.Module):
         logits = self.classifier(lstm_out)  # (batch_size, seq_len, num_labels)
         return logits
 
-    def crf_loss(self, logits, labels):
+    def crf_loss(self, logits, labels, input_ids=None):
         mask = labels != -100
         clean_labels = labels.clone()
-        clean_labels[clean_labels == -100] = 0
+        clean_labels[clean_labels == -100] = LABEL2ID.get("O", 0)
         return self.crf(logits, clean_labels, mask)
 
     def decode(self, input_ids):
@@ -362,10 +362,10 @@ class PhoBERTModel(nn.Module):
         logits = self.classifier(sequence_output)  # (batch_size, seq_len, num_labels)
         return logits
 
-    def crf_loss(self, logits, labels):
+    def crf_loss(self, logits, labels, input_ids=None):
         mask = labels != -100
         clean_labels = labels.clone()
-        clean_labels[clean_labels == -100] = 0
+        clean_labels[clean_labels == -100] = LABEL2ID.get("O", 0)
         return self.crf(logits, clean_labels, mask)
 
     def decode(self, input_ids):
@@ -380,28 +380,24 @@ class PhoBERTModel(nn.Module):
 
 
 def PhoBERTLoRA(model_name="vinai/phobert-base", num_labels=NUM_LABELS, use_crf=False):
-    """
-    Helper function to instantiate a PhoBERTModel with LoRA parameter-efficient fine-tuning.
-    """
-    # 1. Instantiate standard PhoBERT model
     model = PhoBERTModel(model_name=model_name, num_labels=num_labels, use_crf=use_crf)
 
-    # 2. Configure PEFT LoRA
-    # For PhoBERT (RoBERTa architecture), typical attention weight parameters to target are:
-    # "query", "value", "key" inside self_attention.
+    cfg = LoRAConfig()
     peft_config = LoraConfig(
         task_type=None,
-        r=LORA_R,
-        lora_alpha=LORA_ALPHA,
-        lora_dropout=LORA_DROPOUT,
-        target_modules=[
-            "query",
-            "value",
-        ],
+        r=cfg.r,
+        lora_alpha=cfg.alpha,
+        lora_dropout=cfg.dropout,
+        target_modules=["query", "value"],
     )
-
-    # Wrap standard PyTorch BERT model with PEFT LoRA
-    # Since PhoBERTModel wraps AutoModel inside self.bert, we apply peft directly to self.bert!
     model.bert = get_peft_model(model.bert, peft_config)
+
+    # unfreeze classifier and crf
+    for param in model.classifier.parameters():
+        param.requires_grad = True
+
+    if use_crf and hasattr(model, "crf"):
+        for param in model.crf.parameters():
+            param.requires_grad = True
 
     return model
