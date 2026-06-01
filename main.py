@@ -190,7 +190,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="phobert",
+        default="phobert-lora",
+        nargs="+",
         choices=["phobert", "phobert-lora", "lstm", "bilstm", "all"],
         help="Choose model architecture to work with (use 'all' to train/evaluate all models sequentially).",
     )
@@ -208,7 +209,7 @@ def main():
         help="Attach a Conditional Random Field (CRF) layer to the network output.",
     )
     parser.add_argument(
-        "--epochs", type=int, default=10, help="Override default training epochs."
+        "--epochs", type=int, default=None, help="Override default training epochs."
     )
     parser.add_argument(
         "--batch_size",
@@ -247,9 +248,8 @@ def main():
     # 3. Parse arguments
     args = parser.parse_args()
 
-    batch_size = args.batch_size or (
-        tf_config.batch_size if "phobert" in args.model else tf_config.batch_size
-    )
+    batch_size = args.batch_size or tf_config.batch_size
+
     epochs = args.epochs or (
         tf_config.epochs if "phobert" in args.model else lstm_config.epochs
     )
@@ -303,11 +303,10 @@ def main():
         )
 
         # Xác định danh sách model cần train
-        models_to_train = (
-            ["lstm", "bilstm", "phobert", "phobert-lora"]
-            if args.model == "all"
-            else [args.model]
-        )
+        if "all" in args.model:
+            models_to_train = ["lstm", "bilstm", "phobert", "phobert-lora"]
+        else:
+            models_to_train = args.model
 
         # Vòng lặp train lần lượt các model
         for current_model in models_to_train:
@@ -342,12 +341,17 @@ def main():
             optimizer = optim.AdamW(model.parameters(), lr=current_lr)
             criterion = NERLoss(model)
 
+            model_checkpoint_dir = os.path.join(
+                CHECKPOINT_DIR, f"{current_model}_crf_{args.use_crf}"
+            )
+            os.makedirs(model_checkpoint_dir, exist_ok=True)
+
             trainer = BaseTrainer(
                 model=model,
                 optimizer=optimizer,
                 criterion=criterion,
                 device=device,
-                save_dir=CHECKPOINT_DIR,
+                save_dir=model_checkpoint_dir,
                 run_name=f"{current_model}_crf_{args.use_crf}",
             )
 
@@ -374,11 +378,10 @@ def main():
         )
         test_sentences = read_conll(TEST_FILE)
 
-        models_to_eval = (
-            ["lstm", "bilstm", "phobert", "phobert-lora"]
-            if args.model == "all"
-            else [args.model]
-        )
+        if "all" in args.model:
+            models_to_eval = ["lstm", "bilstm", "phobert", "phobert-lora"]
+        else:
+            models_to_eval = args.model
 
         for current_model in models_to_eval:
             logger.info(
@@ -394,14 +397,18 @@ def main():
                     if "distilled" in current_model
                     else "model.pt"
                 )
+                model_checkpoint_dir = os.path.join(
+                    CHECKPOINT_DIR, f"{current_model}_crf_{args.use_crf}"
+                )
                 # Lọc file trong thư mục checkpoint
-                files = [
-                    os.path.join(CHECKPOINT_DIR, f)
-                    for f in os.listdir(CHECKPOINT_DIR)
-                    if chk_name in f
-                ]
-                if files:
-                    chk_path = sorted(files)[-1]
+                if os.path.exists(model_checkpoint_dir):
+                    files = [
+                        os.path.join(model_checkpoint_dir, f)
+                        for f in os.listdir(model_checkpoint_dir)
+                        if chk_name in f
+                    ]
+                    if files:
+                        chk_path = sorted(files)[-1]
 
             # CHỐT CHẶN NGHIÊM NGẶT: Bắt buộc phải có file weights
             if not chk_path or not os.path.exists(chk_path):
@@ -472,11 +479,10 @@ def main():
             )
             return
 
-        models_to_infer = (
-            ["lstm", "bilstm", "phobert", "phobert-lora"]
-            if args.model == "all"
-            else [args.model]
-        )
+        if "all" in args.model:
+            models_to_infer = ["lstm", "bilstm", "phobert", "phobert-lora"]
+        else:
+            models_to_infer = args.model
 
         for current_model in models_to_infer:
             logger.info(
@@ -598,8 +604,10 @@ def main():
         teacher = teacher.to(device)
 
         # Distill thường áp dụng cho model nhỏ, nếu "all" ta duyệt lstm và bilstm
-        models_to_distill = ["lstm", "bilstm"] if args.model == "all" else [args.model]
-
+        if "all" in args.model:
+            models_to_distill = ["lstm", "bilstm"]
+        else:
+            models_to_distill = args.model
         # Khởi tạo DataLoader 1 lần dùng chung
         train_loader = get_dataloader(
             TRAIN_FILE, tokenizer, batch_size, max_seq_length, LABEL2ID, shuffle=True
@@ -653,18 +661,20 @@ def main():
 
             chk_path = args.checkpoint
             if not chk_path:
-                chk_name = (
-                    "student_distilled.pt"
-                    if "distilled" in current_model
-                    else "model.pt"
+                model_checkpoint_dir = os.path.join(
+                    CHECKPOINT_DIR, f"{current_model}_crf_{args.use_crf}"
                 )
-                files = [
-                    os.path.join(CHECKPOINT_DIR, f)
-                    for f in os.listdir(CHECKPOINT_DIR)
-                    if chk_name in f
-                ]
-                if files:
-                    chk_path = sorted(files)[-1]
+
+                if os.path.exists(model_checkpoint_dir):
+                    # Tìm tất cả file .pt trong thư mục (loại trừ các file đã quantize trước đó)
+                    files = [
+                        os.path.join(model_checkpoint_dir, f)
+                        for f in os.listdir(model_checkpoint_dir)
+                        if f.endswith(".pt") and "quantized" not in f
+                    ]
+                    if files:
+                        # Lấy file mới nhất
+                        chk_path = sorted(files)[-1]
 
             # CHỐT CHẶN NGHIÊM NGẶT
             if not chk_path or not os.path.exists(chk_path):

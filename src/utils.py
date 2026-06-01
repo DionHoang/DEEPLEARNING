@@ -7,6 +7,7 @@ import os
 import json
 from sklearn.metrics import classification_report, confusion_matrix
 
+from .config import LOG_DIR
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -527,7 +528,7 @@ def get_error_analysis(sentences, true_labels, pred_labels, id2label, num_sample
             errors_found += 1
 
 
-def setup_logger(name, log_dir="logs", log_file=None, level=logging.INFO):
+def setup_logger(name, log_dir=LOG_DIR, log_file=None, level=logging.INFO):
     """
     Configures and returns a logger instance with both console and file handlers.
 
@@ -569,32 +570,24 @@ def setup_logger(name, log_dir="logs", log_file=None, level=logging.INFO):
 
     # Respect user-provided `log_dir`. Only use package default when not provided or empty.
     if log_dir is None or str(log_dir).strip() == "":
-        log_dir_path = Path(__file__).parent.parent / "logs"
+        log_dir_path = LOG_DIR
     else:
         log_dir_path = Path(log_dir)
 
     # File handler
     if log_file is None:
-        try:
-            if not log_dir_path.exists():
-                os.makedirs(log_dir_path, exist_ok=True)
-        except OSError:
-            # Fallback to current working directory if creating the dir fails
-            log_dir_path = Path(os.getcwd()) / "logs"
-            os.makedirs(log_dir_path, exist_ok=True)
+        os.makedirs(log_dir_path, exist_ok=True)
 
-        # File name: logs/training_YYYY-MM-DD.log
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        log_file = os.path.join(log_dir_path, f"training_{current_date}.log")
+        # File name: modelname_YYYY-MM-DD_HH-MM-SS.log
+        current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        log_file = os.path.join(log_dir_path, f"{name}_{current_time}.log")
     else:
-        # If user provides specific path, ensure directory exists
         try:
             os.makedirs(os.path.dirname(log_file), exist_ok=True)
         except (TypeError, OSError):
-            # If path creation fails, let FileHandler raise later with a clear error
             pass
 
-    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    file_handler = logging.FileHandler(log_file, encoding="utf-8", delay=True)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
