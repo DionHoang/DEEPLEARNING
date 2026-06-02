@@ -1,6 +1,9 @@
 import os
 import csv
 import json
+from sklearn.metrics import classification_report, confusion_matrix
+
+from .config import LOG_DIR
 import logging
 import random
 from collections import Counter
@@ -278,9 +281,29 @@ def get_error_analysis(sentences, true_labels, pred_labels, id2label, num_sample
             errors_found += 1
 
 
-def setup_logger(name, log_dir="results/logs"):
-    """Advanced logger setup with console, date-stamped file outputs, and duplicate protections."""
-    os.makedirs(log_dir, exist_ok=True)
+def setup_logger(name, log_dir=LOG_DIR, log_file=None, level=logging.INFO):
+    """
+    Configures and returns a logger instance with both console and file handlers.
+
+    This function ensures that a log directory exists and generates a log file
+    named with the current date if no specific file is provided.
+
+    Parameters
+    ---
+    name : str
+            The name of the logger (usually __name__).
+    log_dir : str, optional
+            Directory to save log files. Defaults to "logs".
+    log_file : str, optional
+            Specific path for the log file. If None, a default name based on the date is generated.
+    level : int, optional
+            The logging level (e.g., logging.INFO). Defaults to logging.INFO.
+
+    Returns
+    ---
+    logging.Logger
+            A configured logger instance.
+    """
     logger = logging.getLogger(name)
 
     if logger.hasHandlers():
@@ -292,9 +315,36 @@ def setup_logger(name, log_dir="results/logs"):
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    ch = logging.StreamHandler()
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
+    # Console Handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    # Respect user-provided `log_dir`. Only use package default when not provided or empty.
+    if log_dir is None or str(log_dir).strip() == "":
+        log_dir_path = LOG_DIR
+    else:
+        log_dir_path = Path(log_dir)
+
+    # File handler
+    if log_file is None:
+        os.makedirs(log_dir_path, exist_ok=True)
+
+        # File name: modelname_YYYY-MM-DD_HH-MM-SS.log
+        current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        log_file = os.path.join(log_dir_path, f"{name}_{current_time}.log")
+    else:
+        try:
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        except (TypeError, OSError):
+            pass
+
+    file_handler = logging.FileHandler(log_file, encoding="utf-8", delay=True)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    # Disable propagate to prevent logs from being pushed to root logger (avoid duplicate printing if root logger also has handler)
+    logger.propagate = False
 
     log_file = os.path.join(
         log_dir, f"{name}_{datetime.now().strftime('%Y%m%d')}.log"
