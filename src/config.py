@@ -1,19 +1,26 @@
-import os
+from pathlib import Path
+from dataclasses import dataclass
 
-# --- Path Configurations ---
-DATA_DIR = "DATA"
-TRAIN_FILE = os.path.join(DATA_DIR, "train_word.conll")
-DEV_FILE = os.path.join(DATA_DIR, "dev_word.conll")
-TEST_FILE = os.path.join(DATA_DIR, "test_word.conll")
+# --- Base directory ---
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-CHECKPOINT_DIR = "results/checkpoints"
-LOG_DIR = "results/logs"
-PLOT_DIR = "results/plots"
+# --- Data paths ---
+DATA_DIR = BASE_DIR / "DATA"
+
+TRAIN_FILE = DATA_DIR / "train_word.conll"
+DEV_FILE = DATA_DIR / "dev_word.conll"
+TEST_FILE = DATA_DIR / "test_word.conll"
+
+# --- Output paths ---
+OUTPUT_DIR = BASE_DIR / "results"
+
+CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
+LOG_DIR = OUTPUT_DIR / "logs"
+PLOT_DIR = OUTPUT_DIR / "plots"
 
 # Ensure directories exist
-os.makedirs(CHECKPOINT_DIR, exist_ok=True)
-os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs(PLOT_DIR, exist_ok=True)
+for path in [CHECKPOINT_DIR, LOG_DIR, PLOT_DIR]:
+    path.mkdir(parents=True, exist_ok=True)
 
 # --- Label Definitions ---
 # Exactly matching unique tags found in the PhoNER_COVID19 dataset
@@ -44,31 +51,45 @@ LABEL2ID = {label: idx for idx, label in enumerate(LABEL_LIST)}
 ID2LABEL = {idx: label for idx, label in enumerate(LABEL_LIST)}
 NUM_LABELS = len(LABEL_LIST)
 
-# --- Global & Transformer Hyperparameters ---
-MAX_SEQ_LENGTH = 256
-BATCH_SIZE = 16
-VAL_BATCH_SIZE = 32
 
-EPOCHS = 10
-LEARNING_RATE = 2e-5
-PATIENCE = 3
-WEIGHT_DECAY = 0.01
+# --- Global & Transformer Hyperparameters ---
+@dataclass
+class TransformerConfig:
+    max_seq_length: int = 256
+    batch_size: int = 16
+    val_batch_size: int = 32
+    epochs: int = 10
+    learning_rate: float = 2e-5
+    patience: int = 3
+    weight_decay: float = 0.01
+
 
 # --- LSTM & Bi-LSTM Hyperparameters ---
-LSTM_EMBEDDING_DIM = 300
-LSTM_HIDDEN_DIM = 256
-LSTM_DROPOUT = 0.5
-LSTM_LEARNING_RATE = 1e-3
-LSTM_EPOCHS = 30
+@dataclass
+class LSTMConfig:
+    embedding_dim: int = 300
+    hidden_dim: int = 256
+    dropout: float = 0.5
+    learning_rate: float = 1e-3
+    epochs: int = 30
+
 
 # --- Parameter-Efficient Fine-Tuning (PEFT/LoRA) Configurations ---
-LORA_R = 8
-LORA_ALPHA = 16
-LORA_DROPOUT = 0.1
+@dataclass
+class LoRAConfig:
+    r: int = 8
+    alpha: int = 16
+    dropout: float = 0.1
+
 
 # --- Knowledge Distillation (KD) Configurations ---
-KD_TEMPERATURE = 3.0
-KD_ALPHA = 0.5
+@dataclass
+class KDConfig:
+    temperature: float = 3.0
+    alpha: float = 0.5
+
 
 # --- Quantization Configurations ---
-QUANTIZE_BITS = 8
+@dataclass
+class QuantConfig:
+    bits: int = 8
