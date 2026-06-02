@@ -349,8 +349,27 @@ def run_infer(args, tf_config, tokenizer, device, ID2LABEL):
             )
             continue
 
+        is_quantized = "quantized" in chk_path
+
+        # 1. Force CPU fallback for quantized models (PTQ does not support GPU execution)
+        if is_quantized:
+            device = torch.device("cpu")
+            logger.info(
+                "Quantized model detected. Forcing CPU fallback for compatibility."
+            )
+
         logger.info(f"Loading weights from {chk_path}")
-        ckpt = torch.load(chk_path, map_location=device)
+
+        # 2. Disable default weights_only restriction introduced in PyTorch 2.6 to allow ScriptObject loading
+        ckpt = torch.load(chk_path, map_location=device, weights_only=False)
+
+        # 3. Restructure baseline model to quantized architecture prior to state_dict loading
+        if is_quantized:
+            logger.info(
+                "Adapting base model architecture to quantized dynamic layout..."
+            )
+            model = quantize_utils.quantize_dynamic_ptq(model)
+
         model.load_state_dict(ckpt.get("model_state", ckpt))
         model = model.to(device)
         model.eval()
@@ -513,7 +532,7 @@ def run_quantize(args, tf_config, tokenizer, device, LABEL2ID, ID2LABEL):
     val_batch_size = tf_config.val_batch_size
 
     # Lượng tử hóa thường nhắm vào LSTM chạy CPU
-    models_to_quantize = ["lstm", "bilstm"] if args.model == "all" else [args.model]
+    models_to_quantize = ["lstm", "bilstm"] if "all" in args.model else args.model
 
     for current_model in models_to_quantize:
         logger.info(

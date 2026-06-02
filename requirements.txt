@@ -1,7 +1,8 @@
 # Core Deep Learning & NLP
 torch==2.1.2
 transformers==4.36.2
-peft==0.7.1
+peft>=0.10.0
+torchao>=0.16.0
 pyvi==0.1.1
 
 # Web UI & Dashboards
@@ -21,4 +22,3 @@ seaborn==0.13.2
 # Utilities & Logging
 tqdm==4.66.1
 tensorboard==2.15.1
-wandb==0.16.2
