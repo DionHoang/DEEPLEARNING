@@ -1,4 +1,6 @@
+from matplotlib import path
 import os
+import shutil
 from typing import Optional, Dict
 
 import torch
@@ -7,8 +9,9 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
+import glob
 from .utils import setup_logger, print_model_size
 
 
@@ -22,6 +25,8 @@ class BaseTrainer:
         device: torch.device,
         scheduler: Optional[LRScheduler] = None,
         save_dir: str = "results/checkpoints",
+        tensorboard_dir: str = "results/tensorboard",
+        log_dir: str = "results/logs",
         run_name: Optional[str] = None,
     ):
         self.model = model
@@ -30,12 +35,16 @@ class BaseTrainer:
         self.device = device
         self.scheduler = scheduler
         self.save_dir = save_dir
+
         os.makedirs(self.save_dir, exist_ok=True)
+        os.makedirs(tensorboard_dir, exist_ok=True)
+        os.makedirs(log_dir, exist_ok=True)
+
         self.writer = SummaryWriter(
-            log_dir=os.path.join("results", "tensorboard", run_name or "run")
+            log_dir=os.path.join(tensorboard_dir, run_name or "run")
         )
-        # logger
-        self.logger = setup_logger(run_name or __name__)
+        self.logger = setup_logger(run_name or __name__, log_dir=log_dir)
+
         # log model size
         try:
             total, trainable = print_model_size(
@@ -61,16 +70,31 @@ class BaseTrainer:
             state.update(extra)
         torch.save(state, path)
 
-        all_checkpoints = sorted(glob.glob(os.path.join(self.save_dir, f"*_{name}")))
+        # Quét danh sách checkpoint, BỎ QUA file chứa chữ "best"
+        all_checkpoints = []
+        for f in glob.glob(os.path.join(self.save_dir, f"*_{name}")):
+            if "best" not in os.path.basename(f):
+                all_checkpoints.append(f)
+
+        # Sắp xếp an toàn tuyệt đối theo thời gian file được tạo/sửa
+        all_checkpoints.sort(key=os.path.getmtime)
+
+        # Xóa các file cũ, bọc try-except để an toàn
         if len(all_checkpoints) > 3:
-        for old_ckpt in all_checkpoints[:-3]: # Xóa các file cũ hơn 3 file mới nhất
-            if os.path.exists(old_ckpt):
-                os.remove(old_ckpt)
-                
+            for old_ckpt in all_checkpoints[:-3]:
+                try:
+                    if os.path.exists(old_ckpt):
+                        os.remove(old_ckpt)
+                except Exception as e:
+                    self.logger.warning(
+                        "Không thể xóa checkpoint cũ %s: %s", old_ckpt, e
+                    )
+
         try:
             self.logger.info(f"Saved checkpoint: {path}")
         except Exception as e:
             self.logger.warning("Failed logging checkpoint save: %s", e)
+
         return path
 
     def load_checkpoint(
@@ -168,6 +192,7 @@ class BaseTrainer:
         grad_clip: Optional[float] = None,
         early_stop: Optional[int] = None,
         log_interval: int = 50,
+        start_epoch: int = 1,
     ) -> Dict:
         self.on_train_start()
 
@@ -175,22 +200,20 @@ class BaseTrainer:
         best_path = None
         no_improve = 0
 
-        for epoch in range(1, epochs + 1):
+        for epoch in range(start_epoch, epochs + 1):
 
             self.model.train()
             epoch_loss = 0.0
             total_samples = 0
 
             progress = tqdm(
-                enumerate(train_loader),
-                total=len(train_loader),
-                desc=f"Epoch {epoch}",
-                position=0,       # Cố định vị trí thanh tiến trình
-                leave=True,       # Giữ thanh tiến trình sau khi hoàn thành
-                bar_format='{l_bar}{bar:20}{r_bar}{bar:-10b}' # Cấu hình format để tránh nhảy dòng
+                train_loader,
+                desc=f"Epoch {epoch}/{epochs}",
+                leave=False,
+                bar_format="{l_bar}{bar:30}{r_bar}",
             )
 
-            for step, batch in progress:
+            for step, batch in enumerate(progress):
 
                 self.optimizer.zero_grad()
 
@@ -222,6 +245,8 @@ class BaseTrainer:
                     )
 
                 progress.set_postfix(loss=f"{loss.item():.4f}")
+
+            progress.close()
 
             avg_epoch_loss = epoch_loss / max(1, total_samples)
 
@@ -316,13 +341,19 @@ class BaseTrainer:
                 )
 
             if best_val is None or current_val < best_val:
-
                 best_val = current_val
-                best_path = path
                 no_improve = 0
 
+                best_path = os.path.join(self.save_dir, "best_model.pt")
+                try:
+                    shutil.copy(path, best_path)
+                    self.logger.info(
+                        f"New best model saved at epoch {epoch} with val_loss {best_val:.4f}"
+                    )
+                except Exception as e:
+                    self.logger.warning("Failed to copy best model: %s", e)
+                    best_path = path  # Fallback lại path cũ nếu lỗi
             else:
-
                 no_improve += 1
 
             if early_stop and no_improve >= early_stop:
@@ -358,13 +389,22 @@ class DistillationTrainer(BaseTrainer):
         self.teacher.eval()
         self.alpha = alpha
         self.temperature = temperature
-        self.kldiv = nn.KLDivLoss(reduction="batchmean")
+        self.kldiv = nn.KLDivLoss(reduction="none")
 
     def _distillation_loss(self, student_logits, teacher_logits, labels):
         T = self.temperature
         p_s = nn.functional.log_softmax(student_logits / T, dim=-1)
         p_t = nn.functional.softmax(teacher_logits / T, dim=-1)
-        kd_loss = self.kldiv(p_s, p_t) * (T * T)
+
+        # Tính KL Loss chưa giảm (shape: batch_size, seq_len, num_labels)
+        kd_loss_unmasked = self.kldiv(p_s, p_t) * (T * T)
+
+        # Tạo mask loại bỏ padding (shape: batch_size, seq_len, 1)
+        mask = (labels != -100).unsqueeze(-1).float()
+
+        # Tính tổng loss các token hợp lệ và chia trung bình
+        kd_loss = (kd_loss_unmasked * mask).sum() / torch.clamp(mask.sum(), min=1e-8)
+
         ce_loss = self.criterion(student_logits, labels)
         return self.alpha * kd_loss + (1.0 - self.alpha) * ce_loss
 

@@ -1,24 +1,31 @@
 import os
 import csv
 import json
-from sklearn.metrics import classification_report, confusion_matrix
-
-from .config import LOG_DIR
 import logging
 import random
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import torch
-from sklearn.metrics import confusion_matrix
-# Sử dụng seqeval cho bài toán sequence labeling (NER)
-from seqeval.metrics import classification_report as entity_classification_report
-from seqeval.metrics import f1_score as entity_f1_score
-from seqeval.metrics import precision_score, recall_score
+
+# --- Đổi tên import để tránh ghi đè lẫn nhau ---
+from sklearn.metrics import (
+    classification_report as sk_classification_report,
+    accuracy_score as sk_accuracy_score,
+    confusion_matrix,
+)
+
+from seqeval.metrics import (
+    classification_report as seqeval_classification_report,
+    f1_score,
+    precision_score,
+    recall_score,
+)
 
 
 def set_seed(seed=42):
@@ -31,14 +38,11 @@ def set_seed(seed=42):
     torch.backends.cudnn.benchmark = False
 
 
-# --- NER EVALUATION METRICS (SEQEVAL) ---
+# --- NER EVALUATION METRICS ---
 
 
 def compute_entity_level_metrics(preds, labels, id2label):
-    """Compute span/entity-level precision, recall, and F1 using seqeval.
-
-    Filters out padding tokens (-100).
-    """
+    """Compute span/entity-level precision, recall, and F1 using seqeval. (Yêu cầu list 2 chiều)"""
     true_predictions = [
         [id2label[p] for (p, l) in zip(pr, lb) if l != -100]
         for pr, lb in zip(preds, labels)
@@ -48,18 +52,44 @@ def compute_entity_level_metrics(preds, labels, id2label):
         for pr, lb in zip(preds, labels)
     ]
 
+    # Cập nhật đủ precision, recall, f1-score vào key 'overall' để main.py gọi không bị lỗi
     return {
-        "precision": precision_score(true_labels, true_predictions),
-        "recall": recall_score(true_labels, true_predictions),
-        "f1-score": entity_f1_score(true_labels, true_predictions),
-        "overall": {"f1-score": entity_f1_score(true_labels, true_predictions)},
-        "report": entity_classification_report(true_labels, true_predictions),
+        "overall": {
+            "precision": precision_score(true_labels, true_predictions),
+            "recall": recall_score(true_labels, true_predictions),
+            "f1-score": f1_score(true_labels, true_predictions),
+        },
+        "report": seqeval_classification_report(true_labels, true_predictions),
     }
 
 
 def compute_metrics(preds, labels, label_list):
+    """Compute token-level metrics using sklearn. (Xử lý mảng 1 chiều đã flatten)"""
+    # Lọc bỏ các vị trí padding/subword (-100)
+    f_preds = [p for p, l in zip(preds, labels) if l != -100]
+    f_labels = [l for p, l in zip(preds, labels) if l != -100]
+
     id2label = {i: l for i, l in enumerate(label_list)}
-    return compute_entity_level_metrics(preds, labels, id2label)
+
+    # Chuyển ID sang nhãn dạng string
+    f_preds_str = [id2label.get(p, "O") for p in f_preds]
+    f_labels_str = [id2label.get(l, "O") for l in f_labels]
+
+    # Lấy danh sách tên nhãn thực tế xuất hiện để tránh warning của sklearn
+    present_labels = sorted(list(set(f_labels_str)))
+
+    # Sử dụng hàm của sklearn
+    report = sk_classification_report(
+        f_labels_str,
+        f_preds_str,
+        labels=present_labels,
+        output_dict=True,
+        zero_division=0,
+    )
+    report["accuracy"] = sk_accuracy_score(f_labels_str, f_preds_str)
+
+    return report
+
 
 # --- DATA PREPARATION & MODEL DIAGNOSTICS ---
 
@@ -148,7 +178,10 @@ def plot_confusion_matrix(
     """Plot a confusion matrix restricted to entity labels (excludes 'O')."""
     id2label = {i: l for i, l in enumerate(label_list)}
     filtered = [
-        (p, l) for pr, lb in zip(preds, labels) for p, l in zip(pr, lb) if l != ignore_index
+        (p, l)
+        for pr, lb in zip(preds, labels)
+        for p, l in zip(pr, lb)
+        if l != ignore_index
     ]
     if not filtered:
         return
@@ -162,14 +195,10 @@ def plot_confusion_matrix(
         return
 
     entity_preds = [id2label.get(p, "O") for p, m in zip(f_preds, mask) if m]
-    entity_labels_filtered = [
-        id2label.get(l, "O") for l, m in zip(f_labels, mask) if m
-    ]
+    entity_labels_filtered = [id2label.get(l, "O") for l, m in zip(f_labels, mask) if m]
     present_labels = sorted(set(entity_preds) | set(entity_labels_filtered))
 
-    cm = confusion_matrix(
-        entity_labels_filtered, entity_preds, labels=present_labels
-    )
+    cm = confusion_matrix(entity_labels_filtered, entity_preds, labels=present_labels)
 
     plt.figure(figsize=(14, 12))
     sns.heatmap(
@@ -281,7 +310,7 @@ def get_error_analysis(sentences, true_labels, pred_labels, id2label, num_sample
             errors_found += 1
 
 
-def setup_logger(name, log_dir=LOG_DIR, log_file=None, level=logging.INFO):
+def setup_logger(name, log_dir="results/logs", log_file=None, level=logging.INFO):
     """
     Configures and returns a logger instance with both console and file handlers.
 
@@ -322,7 +351,7 @@ def setup_logger(name, log_dir=LOG_DIR, log_file=None, level=logging.INFO):
 
     # Respect user-provided `log_dir`. Only use package default when not provided or empty.
     if log_dir is None or str(log_dir).strip() == "":
-        log_dir_path = LOG_DIR
+        log_dir_path = Path("results/logs")
     else:
         log_dir_path = Path(log_dir)
 
@@ -342,16 +371,6 @@ def setup_logger(name, log_dir=LOG_DIR, log_file=None, level=logging.INFO):
     file_handler = logging.FileHandler(log_file, encoding="utf-8", delay=True)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-
-    # Disable propagate to prevent logs from being pushed to root logger (avoid duplicate printing if root logger also has handler)
-    logger.propagate = False
-
-    log_file = os.path.join(
-        log_dir, f"{name}_{datetime.now().strftime('%Y%m%d')}.log"
-    )
-    fh = logging.FileHandler(log_file, encoding="utf-8")
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
 
     logger.propagate = False
     return logger
