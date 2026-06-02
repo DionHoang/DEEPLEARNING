@@ -177,6 +177,14 @@ def plot_confusion_matrix(
 ):
     """Plot a confusion matrix restricted to entity labels (excludes 'O')."""
     id2label = {i: l for i, l in enumerate(label_list)}
+
+    # Tự động chuyển mảng 1D (flat) thành 2D nếu cần thiết
+    if len(preds) > 0 and not isinstance(
+        preds[0], (list, tuple, np.ndarray, torch.Tensor)
+    ):
+        preds = [preds]
+        labels = [labels]
+
     filtered = [
         (p, l)
         for pr, lb in zip(preds, labels)
@@ -226,9 +234,17 @@ def plot_entity_distribution(
 ):
     """Plot the distribution of entity labels (excluding 'O')."""
     id2label = {i: l for i, l in enumerate(label_list)}
-    filtered = [
-        id2label.get(l, "O") for seq in labels for l in seq if l != ignore_index
-    ]
+
+    # Tự động chuyển mảng 1D (flat) thành 2D nếu cần thiết
+    if len(labels) > 0 and not isinstance(
+        labels[0], (list, tuple, np.ndarray, torch.Tensor)
+    ):
+        labels = [labels]
+
+        filtered = [
+            id2label.get(l, "O") for seq in labels for l in seq if l != ignore_index
+        ]
+
     entity_labels = [l for l in filtered if l != "O"]
 
     if not entity_labels:
