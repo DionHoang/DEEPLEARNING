@@ -1,8 +1,11 @@
 import torch
 import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer
-from .config import LoRAConfig, NUM_LABELS, LABEL2ID
+from .config import LoRAConfig, NUM_LABELS, LABEL2ID, LSTMConfig
 from peft import LoraConfig, get_peft_model, TaskType
+from .utils import setup_logger
+
+logger = setup_logger("model")
 
 
 class CRFLayer(nn.Module):
@@ -401,3 +404,55 @@ def PhoBERTLoRA(model_name="vinai/phobert-base", num_labels=NUM_LABELS, use_crf=
             param.requires_grad = True
 
     return model
+
+
+class NERLoss(nn.Module):
+    """
+    Unified loss function that routes labels and logits depending on whether
+    the model utilizes a CRF decoding layer.
+    """
+
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+        self.ce = nn.CrossEntropyLoss(ignore_index=-100)
+
+    def forward(self, outputs, labels, inputs=None):
+        if hasattr(self.model, "use_crf") and self.model.use_crf:
+            return self.model.crf_loss(outputs, labels, inputs)
+        else:
+            return self.ce(outputs.view(-1, outputs.shape[-1]), labels.view(-1))
+
+
+def get_model(model_name, vocab_size, use_crf=False):
+    """Instantiate the requested model class."""
+    if model_name == "lstm":
+        lstm_cfg = LSTMConfig()
+        logger.info(f"Instantiating LSTM model (CRF={use_crf})")
+        return LSTMModel(
+            vocab_size=vocab_size,
+            embedding_dim=lstm_cfg.embedding_dim,
+            hidden_dim=lstm_cfg.hidden_dim,
+            num_labels=NUM_LABELS,
+            dropout=lstm_cfg.dropout,
+            use_crf=use_crf,
+        )
+    elif model_name == "bilstm":
+        logger.info(f"Instantiating Bidirectional LSTM model (CRF={use_crf})")
+        lstm_cfg = LSTMConfig()
+        return BiLSTMModel(
+            vocab_size=vocab_size,
+            embedding_dim=lstm_cfg.embedding_dim,
+            hidden_dim=lstm_cfg.hidden_dim,
+            num_labels=NUM_LABELS,
+            dropout=lstm_cfg.dropout,
+            use_crf=use_crf,
+        )
+    elif model_name == "phobert":
+        logger.info(f"Instantiating PhoBERT model (CRF={use_crf})")
+        return PhoBERTModel(num_labels=NUM_LABELS, use_crf=use_crf)
+    elif model_name == "phobert-lora":
+        logger.info(f"Instantiating PhoBERT + LoRA model (CRF={use_crf})")
+        return PhoBERTLoRA(num_labels=NUM_LABELS, use_crf=use_crf)
+    else:
+        raise ValueError(f"Unknown model name: {model_name}")

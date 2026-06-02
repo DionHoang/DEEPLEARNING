@@ -11,8 +11,7 @@ from .config import (
     LABEL2ID,
     ID2LABEL,
     NUM_LABELS,
-    CHECKPOINT_DIR,
-    PLOT_DIR,
+    get_model_dirs,
     TransformerConfig,
     LSTMConfig,
     LoRAConfig,
@@ -32,6 +31,8 @@ from .model import (
     BiLSTMModel,
     PhoBERTModel,
     PhoBERTLoRA,
+    get_model,
+    NERLoss,
 )
 
 from .trainer import (
@@ -62,3 +63,12 @@ from .utils import (
 )
 
 from .data_augmentor import NERDataAugmentor
+
+from .engine import (
+    run_evaluation,
+    run_train,
+    run_evaluate,
+    run_distill,
+    run_infer,
+    run_quantize,
+)

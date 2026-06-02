@@ -14,13 +14,26 @@ TEST_FILE = DATA_DIR / "test_word.conll"
 # --- Output paths ---
 OUTPUT_DIR = BASE_DIR / "results"
 
-CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
-LOG_DIR = OUTPUT_DIR / "logs"
-PLOT_DIR = OUTPUT_DIR / "plots"
 
-# Ensure directories exist
-for path in [CHECKPOINT_DIR, LOG_DIR, PLOT_DIR]:
-    path.mkdir(parents=True, exist_ok=True)
+def get_model_dirs(model_name: str, use_crf: bool = False):
+    """Tạo và trả về cấu trúc thư mục con cho từng model."""
+    crf_suffix = "_crf" if use_crf else ""
+    model_dir = OUTPUT_DIR / f"{model_name}{crf_suffix}"
+
+    dirs = {
+        "base": str(model_dir),
+        "checkpoints": str(model_dir / "checkpoints"),
+        "logs": str(model_dir / "logs"),
+        "plots": str(model_dir / "plots"),
+        "tensorboard": str(model_dir / "tensorboard"),
+    }
+
+    # Đảm bảo tất cả các thư mục đều được tạo
+    for path in dirs.values():
+        Path(path).mkdir(parents=True, exist_ok=True)
+
+    return dirs
+
 
 # --- Label Definitions ---
 # Exactly matching unique tags found in the PhoNER_COVID19 dataset
