@@ -57,12 +57,9 @@ def compute_entity_level_metrics(preds, labels, id2label):
     }
 
 
-def compute_metrics(eval_preds, id2label):
-    """Hugging Face compatible metrics computer."""
-    logits, labels = eval_preds
-    preds = np.argmax(logits, axis=-1)
+def compute_metrics(preds, labels, label_list):
+    id2label = {i: l for i, l in enumerate(label_list)}
     return compute_entity_level_metrics(preds, labels, id2label)
-
 
 # --- DATA PREPARATION & MODEL DIAGNOSTICS ---
 
@@ -358,74 +355,3 @@ def setup_logger(name, log_dir=LOG_DIR, log_file=None, level=logging.INFO):
 
     logger.propagate = False
     return logger
-
-
-# --- LATEX REPORTING SYSTEM ---
-
-latex_report_template = r"""\documentclass{report}
-\usepackage[utf8]{inputenc}
-\usepackage[vietnam]{babel}
-\usepackage{graphicx}
-\usepackage{booktabs}
-\usepackage{hyperref}
-
-\title{Vietnamese Named Entity Recognition (PhoNER COVID-19) - Evaluation Report}
-\author{Lead Evaluator}
-\date{\today}
-
-\begin{document}
-\maketitle
-
-\chapter{Introduction}
-This report provides an automated evaluation of the Vietnamese NER models trained on the PhoNER COVID-19 dataset.
-
-\chapter{Training Metrics}
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.8\textwidth]{plots/loss_curve.png}
-    \caption{Training and Validation Loss}
-\end{figure}
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.8\textwidth]{plots/f1_curve.png}
-    \caption{F1 Score Evolution}
-\end{figure}
-
-\chapter{Evaluation Results}
-\section{Performance Metrics}
-{{METRICS_TABLE}}
-
-\section{Error Analysis}
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=\textwidth]{plots/cm.png}
-    \caption{Token-level Confusion Matrix (Excluding 'O')}
-\end{figure}
-
-\end{document}
-"""
-
-
-def generate_latex_table(metrics_dict):
-    """Converts metrics dictionary to a LaTeX tabular string."""
-    header = "\\begin{tabular}{lc}\\toprule\nMetric & Value \\\\\midrule\n"
-    rows = ""
-    for k, v in metrics_dict.items():
-        if isinstance(v, (float, int)):
-            rows += f"{k.replace('_', ' ').title()} & {v:.4f} \\\\\n"
-    footer = "\\bottomrule\\end{tabular}"
-    return header + rows + footer
-
-
-def create_latex_report(metrics_dict, output_path="results/report.tex"):
-    """Generates the full report with embedded statistics tables."""
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    table_code = generate_latex_table(metrics_dict)
-    report_content = latex_report_template.replace(
-        "{{METRICS_TABLE}}", table_code
-    )
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(report_content)
-    print(f"✅ LaTeX report template generated at {output_path}")

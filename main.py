@@ -49,6 +49,9 @@ from torch.utils.data import DataLoader
 
 import src.quantize_utils as quantize_utils
 
+import transformers
+transformers.utils.logging.set_verbosity_error() # Ẩn các log không cần thiết của transformers
+
 # Set up main logger
 logger = setup_logger("main_orchestrator")
 

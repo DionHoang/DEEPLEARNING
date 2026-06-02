@@ -60,6 +60,13 @@ class BaseTrainer:
         if extra:
             state.update(extra)
         torch.save(state, path)
+
+        all_checkpoints = sorted(glob.glob(os.path.join(self.save_dir, f"*_{name}")))
+        if len(all_checkpoints) > 3:
+        for old_ckpt in all_checkpoints[:-3]: # Xóa các file cũ hơn 3 file mới nhất
+            if os.path.exists(old_ckpt):
+                os.remove(old_ckpt)
+                
         try:
             self.logger.info(f"Saved checkpoint: {path}")
         except Exception as e:
@@ -178,6 +185,9 @@ class BaseTrainer:
                 enumerate(train_loader),
                 total=len(train_loader),
                 desc=f"Epoch {epoch}",
+                position=0,       # Cố định vị trí thanh tiến trình
+                leave=True,       # Giữ thanh tiến trình sau khi hoàn thành
+                bar_format='{l_bar}{bar:20}{r_bar}{bar:-10b}' # Cấu hình format để tránh nhảy dòng
             )
 
             for step, batch in progress:
