@@ -60,6 +60,13 @@ class BaseTrainer:
         if extra:
             state.update(extra)
         torch.save(state, path)
+
+        all_checkpoints = sorted(glob.glob(os.path.join(self.save_dir, f"*_{name}")))
+        if len(all_checkpoints) > 3:
+        for old_ckpt in all_checkpoints[:-3]: # Xóa các file cũ hơn 3 file mới nhất
+            if os.path.exists(old_ckpt):
+                os.remove(old_ckpt)
+                
         try:
             self.logger.info(f"Saved checkpoint: {path}")
         except Exception as e:
