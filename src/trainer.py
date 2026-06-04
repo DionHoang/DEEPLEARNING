@@ -76,8 +76,17 @@ class BaseTrainer:
             if "best" not in os.path.basename(f):
                 all_checkpoints.append(f)
 
+        # --- Hàm helper tách lấy số epoch từ tên file để sort ---
+        def extract_epoch_number(filepath):
+            filename = os.path.basename(filepath)
+            try:
+                # Cắt chuỗi lấy phần ký tự số trước dấu gạch dưới đầu tiên
+                return int(filename.split("_")[0])
+            except (ValueError, IndexError):
+                return 0
+
         # Sắp xếp an toàn tuyệt đối theo thời gian file được tạo/sửa
-        all_checkpoints.sort(key=os.path.getmtime)
+        all_checkpoints.sort(key=extract_epoch_number)
 
         # Xóa các file cũ, bọc try-except để an toàn
         if len(all_checkpoints) > 3:
@@ -87,7 +96,7 @@ class BaseTrainer:
                         os.remove(old_ckpt)
                 except Exception as e:
                     self.logger.warning(
-                        "Không thể xóa checkpoint cũ %s: %s", old_ckpt, e
+                        "Failed to delete old checkpoint %s: %s", old_ckpt, e
                     )
 
         try:
@@ -153,6 +162,8 @@ class BaseTrainer:
 
         total_loss = 0.0
         total_samples = 0
+        total_correct = 0
+        total_valid_tokens = 0
 
         with torch.no_grad():
             for batch in dataloader:
@@ -167,7 +178,26 @@ class BaseTrainer:
                 total_loss += loss.item() * batch_size
                 total_samples += batch_size
 
-        return {"loss": total_loss / max(1, total_samples)}
+                if hasattr(model, "use_crf") and model.use_crf:
+                    # CRF decode trả về list các kích thước khác nhau, ta lấy argmax trên emission cho nhanh
+                    # (Để tính eval metrics chi tiết bạn đã có hàm run_evaluate riêng, ở đây ta cần theo dõi xấp xỉ)
+                    preds = torch.argmax(outputs, dim=-1)
+                else:
+                    preds = torch.argmax(outputs, dim=-1)
+
+                mask = labels != -100
+                if preds.shape == labels.shape:
+                    total_correct += ((preds == labels) & mask).sum().item()
+                    total_valid_tokens += mask.sum().item()
+
+        avg_loss = total_loss / max(1, total_samples)
+        accuracy = (
+            total_correct / max(1, total_valid_tokens)
+            if total_valid_tokens > 0
+            else 0.0
+        )
+
+        return {"loss": avg_loss, "accuracy": accuracy}
 
     def on_train_start(self):
         pass
@@ -182,7 +212,7 @@ class BaseTrainer:
         outputs = self.model(inputs)
         loss = self.criterion(outputs, labels, inputs)
 
-        return loss
+        return loss, outputs, labels
 
     def train(
         self,
@@ -200,11 +230,15 @@ class BaseTrainer:
         best_path = None
         no_improve = 0
 
+        history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
         for epoch in range(start_epoch, epochs + 1):
 
             self.model.train()
             epoch_loss = 0.0
             total_samples = 0
+
+            train_correct = 0
+            train_valid_tokens = 0
 
             progress = tqdm(
                 train_loader,
@@ -217,7 +251,7 @@ class BaseTrainer:
 
                 self.optimizer.zero_grad()
 
-                loss = self.training_step(batch)
+                loss, outputs, labels = self.training_step(batch)
 
                 loss.backward()
 
@@ -234,6 +268,13 @@ class BaseTrainer:
                 epoch_loss += loss.item() * batch_size
                 total_samples += batch_size
 
+                # Tính acc cho tập train
+                preds = torch.argmax(outputs, dim=-1)
+                mask = labels != -100
+                if preds.shape == labels.shape:
+                    train_correct += ((preds == labels) & mask).sum().item()
+                    train_valid_tokens += mask.sum().item()
+
                 if step % log_interval == 0:
 
                     global_step = (epoch - 1) * len(train_loader) + step
@@ -249,101 +290,65 @@ class BaseTrainer:
             progress.close()
 
             avg_epoch_loss = epoch_loss / max(1, total_samples)
-
-            self.writer.add_scalar(
-                "train/epoch_loss",
-                avg_epoch_loss,
-                epoch,
+            train_acc = (
+                train_correct / max(1, train_valid_tokens)
+                if train_valid_tokens > 0
+                else 0.0
             )
 
-            self.logger.info(f"Epoch {epoch} train_loss=" f"{avg_epoch_loss:.4f}")
+            history["train_loss"].append(avg_epoch_loss)
+            history["train_acc"].append(train_acc)
 
+            self.writer.add_scalar("train/epoch_loss", avg_epoch_loss, epoch)
+            self.writer.add_scalar("train/epoch_acc", train_acc, epoch)
+            self.logger.info(
+                f"Epoch {epoch} train_loss={avg_epoch_loss:.4f}, train_acc={train_acc:.4f}"
+            )
+
+            # Đánh giá trên Validation set
             val_metrics = None
-
             if val_loader is not None:
-
                 val_metrics = self.evaluate(val_loader)
+                val_loss = val_metrics.get("loss", float("inf"))
+                val_acc = val_metrics.get("accuracy", 0.0)
 
-                val_loss = val_metrics.get(
-                    "loss",
-                    float("inf"),
+                history["val_loss"].append(val_loss)
+                history["val_acc"].append(val_acc)
+
+                self.writer.add_scalar("val/loss", val_loss, epoch)
+                self.writer.add_scalar("val/acc", val_acc, epoch)
+                self.logger.info(
+                    f"Epoch {epoch} val_loss={val_loss:.4f}, val_acc={val_acc:.4f}"
                 )
 
-                self.writer.add_scalar(
-                    "val/loss",
-                    val_loss,
-                    epoch,
-                )
-
-                self.logger.info(f"Epoch {epoch} val_loss={val_loss:.4f}")
-
+            # LRScheduler Step
             if self.scheduler is not None:
-
                 try:
-
-                    if isinstance(
-                        self.scheduler,
-                        optim.lr_scheduler.ReduceLROnPlateau,
-                    ):
-
+                    if isinstance(self.scheduler, optim.lr_scheduler.ReduceLROnPlateau):
                         if val_metrics is not None:
-
                             self.scheduler.step(val_loss)
-
                         else:
-
                             self.logger.warning(
-                                "ReduceLROnPlateau requires validation metrics "
-                                "(val_loader is None). Scheduler not updated."
+                                "ReduceLROnPlateau requires val_loader. Scheduler skipped."
                             )
-
                     else:
-
                         self.scheduler.step()
-
                 except Exception as e:
-
-                    self.logger.warning(
-                        "Scheduler.step() failed: %s",
-                        e,
-                    )
+                    self.logger.warning(f"Scheduler.step() failed: {e}")
 
                 current_lr = self.optimizer.param_groups[0]["lr"]
+                self.writer.add_scalar("train/lr", current_lr, epoch)
 
-                self.writer.add_scalar(
-                    "train/lr",
-                    current_lr,
-                    epoch,
-                )
+            extra = {"val_loss": val_metrics.get("loss") if val_metrics else None}
+            path = self.save_checkpoint(epoch, name="model.pt", extra=extra)
 
-            extra = {"val_loss": (val_metrics.get("loss") if val_metrics else None)}
-
-            path = self.save_checkpoint(
-                epoch,
-                name="model.pt",
-                extra=extra,
+            current_val = (
+                val_metrics.get("loss", float("inf")) if val_metrics else avg_epoch_loss
             )
-
-            if val_metrics is not None:
-
-                current_val = val_metrics.get(
-                    "loss",
-                    float("inf"),
-                )
-
-            else:
-
-                current_val = avg_epoch_loss
-
-                self.logger.warning(
-                    "Validation loader not provided. "
-                    "Early stopping will monitor training loss."
-                )
 
             if best_val is None or current_val < best_val:
                 best_val = current_val
                 no_improve = 0
-
                 best_path = os.path.join(self.save_dir, "best_model.pt")
                 try:
                     shutil.copy(path, best_path)
@@ -351,8 +356,8 @@ class BaseTrainer:
                         f"New best model saved at epoch {epoch} with val_loss {best_val:.4f}"
                     )
                 except Exception as e:
-                    self.logger.warning("Failed to copy best model: %s", e)
-                    best_path = path  # Fallback lại path cũ nếu lỗi
+                    self.logger.warning(f"Failed to copy best model: {e}")
+                    best_path = path
             else:
                 no_improve += 1
 
@@ -363,12 +368,10 @@ class BaseTrainer:
         results = {
             "best_path": best_path,
             "best_val": best_val,
+            "history": history,
         }
-
         results = self.on_train_end(results)
-
         self.writer.close()
-
         return results
 
 
@@ -417,11 +420,9 @@ class DistillationTrainer(BaseTrainer):
 
         student_logits = self.model(inputs)
 
-        return self._distillation_loss(
-            student_logits,
-            teacher_logits,
-            labels,
-        )
+        loss = self._distillation_loss(student_logits, teacher_logits, labels)
+
+        return loss, student_logits, labels
 
 
 class QuantizationTrainer(BaseTrainer):

@@ -23,6 +23,7 @@ logger = setup_logger("main_orchestrator")
 def main():
     # 1. Khởi tạo các class cấu hình
     tf_config = TransformerConfig()
+    bert_config = BERTConfig()
     lstm_config = LSTMConfig()
     kd_config = KDConfig()  # Thêm config cho Distillation
 
@@ -33,9 +34,9 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="phobert-lora",
+        default="bilstm",
         nargs="+",
-        choices=["phobert", "phobert-lora", "lstm", "bilstm", "all"],
+        choices=["phobert", "phobert-lora", "transformer", "lstm", "bilstm", "all"],
         help="Choose model architecture to work with (use 'all' to train/evaluate all models sequentially).",
     )
     parser.add_argument(
@@ -88,44 +89,80 @@ def main():
         help="Vietnamese text sentence for raw inference.",
     )
 
+    parser.add_argument(
+        "--force_cpu_crf",
+        action="store_true",
+        default=False,
+        help="Force CPU usage when using CRF (especially on Apple Silicon) to avoid unsupported operations.",
+    )
     # 3. Parse arguments
     args = parser.parse_args()
 
-    batch_size = args.batch_size or tf_config.batch_size
+    if "all" in args.model:
+        logger.info("Chế độ huấn luyện/đánh giá toàn bộ các mô hình tuần tự.")
+        base_cfg = None
+    else:
+        primary_model = args.model[0]
+        if "phobert" in primary_model:
+            base_cfg = bert_config
+        elif primary_model == "transformer":
+            base_cfg = tf_config
+        else:
+            base_cfg = lstm_config
 
-    epochs = args.epochs or (
-        tf_config.epochs if "phobert" in args.model else lstm_config.epochs
-    )
-    learning_rate = args.lr or (
-        tf_config.learning_rate
-        if "phobert" in args.model
-        else lstm_config.learning_rate
-    )
-    max_seq_length = tf_config.max_seq_length
-    val_batch_size = tf_config.val_batch_size
+    # Chỉ tính toán các biến fallback này nếu không phải chế độ 'all'
+    batch_size = args.batch_size or (base_cfg.batch_size if base_cfg else None)
+    epochs = args.epochs or (base_cfg.epochs if base_cfg else None)
+    learning_rate = args.lr or (base_cfg.learning_rate if base_cfg else None)
+    max_seq_length = base_cfg.max_seq_length if base_cfg else None
+    val_batch_size = base_cfg.val_batch_size if base_cfg else None
 
     device = torch.device(
         "cuda"
         if torch.cuda.is_available()
         else "mps" if torch.backends.mps.is_available() else "cpu"
     )
+
+    # --- SỬA LỖI 3: Fallback an toàn cho CRF trên MPS ---
+    if args.use_crf and (device.type == "mps" or args.force_cpu_crf):
+        logger.warning(
+            "Detected CRF usage on MPS (Apple Silicon) or the --force_cpu_crf flag is enabled. "
+            "Forcing fallback to CPU to prevent asynchronous `torch.logsumexp` errors."
+        )
+        device = torch.device("cpu")
+
     logger.info(f"Using compute target device: {device}")
 
     logger.info("Initializing vinai/phobert-base tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base", keep_accents=True)
 
     if args.mode == "train":
-        run_train(args, tf_config, lstm_config, tokenizer, device, LABEL2ID)
+        run_train(
+            args, bert_config, tf_config, lstm_config, tokenizer, device, LABEL2ID
+        )
 
     elif args.mode == "evaluate":
-        run_evaluate(args, tf_config, tokenizer, device, LABEL2ID, ID2LABEL, LABEL_LIST)
+        run_evaluate(
+            args,
+            bert_config,
+            tf_config,
+            lstm_config,
+            tokenizer,
+            device,
+            LABEL2ID,
+            ID2LABEL,
+            LABEL_LIST,
+        )
 
     elif args.mode == "infer":
-        run_infer(args, tf_config, tokenizer, device, ID2LABEL)
+        run_infer(
+            args, bert_config, tf_config, lstm_config, tokenizer, device, ID2LABEL
+        )
 
     elif args.mode == "distill":
         run_distill(
             args,
+            bert_config,
             tf_config,
             lstm_config,
             kd_config,
@@ -136,7 +173,16 @@ def main():
         )
 
     elif args.mode == "quantize":
-        run_quantize(args, tf_config, tokenizer, device, LABEL2ID, ID2LABEL)
+        run_quantize(
+            args,
+            bert_config,
+            tf_config,
+            lstm_config,
+            tokenizer,
+            device,
+            LABEL2ID,
+            ID2LABEL,
+        )
 
     else:
         logger.error(f"Unknown mode: {args.mode}")

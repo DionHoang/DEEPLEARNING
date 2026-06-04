@@ -1,11 +1,92 @@
 import torch
 import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer
-from .config import LoRAConfig, NUM_LABELS, LABEL2ID, LSTMConfig
+from .config import (
+    LoRAConfig,
+    NUM_LABELS,
+    LABEL2ID,
+    LSTMConfig,
+    TransformerConfig,
+    BERTConfig,
+)
 from peft import LoraConfig, get_peft_model, TaskType
 from .utils import setup_logger
+import math
 
 logger = setup_logger("model")
+
+
+class NERLoss(nn.Module):
+    """
+    Unified loss function that routes labels and logits depending on whether
+    the model utilizes a CRF decoding layer.
+    """
+
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+        self.ce = nn.CrossEntropyLoss(ignore_index=-100)
+
+    def forward(self, outputs, labels, inputs=None):
+        if hasattr(self.model, "use_crf") and self.model.use_crf:
+            return self.model.crf_loss(outputs, labels, inputs)
+        else:
+            return self.ce(outputs.view(-1, outputs.shape[-1]), labels.view(-1))
+
+
+def get_model(model_name, vocab_size, pad_token_id=1, use_crf=False):
+    """Instantiate the requested model class."""
+    if model_name == "lstm":
+        lstm_cfg = LSTMConfig()
+        logger.info(f"Instantiating LSTM model (CRF={use_crf})")
+        return LSTMModel(
+            vocab_size=vocab_size,
+            embedding_dim=lstm_cfg.embedding_dim,
+            hidden_dim=lstm_cfg.hidden_dim,
+            num_labels=NUM_LABELS,
+            dropout=lstm_cfg.dropout,
+            pad_token_id=pad_token_id,
+            use_crf=use_crf,
+        )
+    elif model_name == "bilstm":
+        logger.info(f"Instantiating Bidirectional LSTM model (CRF={use_crf})")
+        lstm_cfg = LSTMConfig()
+        return BiLSTMModel(
+            vocab_size=vocab_size,
+            embedding_dim=lstm_cfg.embedding_dim,
+            hidden_dim=lstm_cfg.hidden_dim,
+            num_labels=NUM_LABELS,
+            dropout=lstm_cfg.dropout,
+            pad_token_id=pad_token_id,
+            use_crf=use_crf,
+        )
+    elif model_name == "phobert":
+        logger.info(f"Instantiating PhoBERT model (CRF={use_crf})")
+        return PhoBERTModel(
+            num_labels=NUM_LABELS, pad_token_id=pad_token_id, use_crf=use_crf
+        )
+    elif model_name == "phobert-lora":
+        logger.info(f"Instantiating PhoBERT + LoRA model (CRF={use_crf})")
+        return PhoBERTLoRA(
+            num_labels=NUM_LABELS, pad_token_id=pad_token_id, use_crf=use_crf
+        )
+    elif model_name == "transformer":
+        logger.info(f"Instantiating Scratch Transformer model (CRF={use_crf})")
+        tf_cfg = TransformerConfig()
+        return TransformerModel(
+            vocab_size=vocab_size,
+            embedding_dim=tf_cfg.embedding_dim,
+            nhead=tf_cfg.nhead,
+            num_layers=tf_cfg.num_layers,
+            dim_feedforward=tf_cfg.dim_feedforward,
+            num_labels=NUM_LABELS,
+            max_seq_length=tf_cfg.max_seq_length,
+            dropout=tf_cfg.dropout,
+            pad_token_id=pad_token_id,
+            use_crf=use_crf,
+        )
+    else:
+        raise ValueError(f"Unknown model name: {model_name}")
 
 
 class CRFLayer(nn.Module):
@@ -230,13 +311,17 @@ class LSTMModel(nn.Module):
         hidden_dim,
         num_labels,
         dropout=0.5,
+        pad_token_id=1,
         use_crf=False,
     ):
         super().__init__()
         self.use_crf = use_crf
         self.num_labels = num_labels
+        self.pad_token_id = pad_token_id
 
-        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=1)
+        self.embedding = nn.Embedding(
+            vocab_size, embedding_dim, padding_idx=self.pad_token_id
+        )
         self.lstm = nn.LSTM(
             embedding_dim,
             hidden_dim,
@@ -290,13 +375,17 @@ class BiLSTMModel(nn.Module):
         hidden_dim,
         num_labels,
         dropout=0.5,
+        pad_token_id=1,
         use_crf=False,
     ):
         super().__init__()
         self.use_crf = use_crf
         self.num_labels = num_labels
+        self.pad_token_id = pad_token_id
 
-        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=1)
+        self.embedding = nn.Embedding(
+            vocab_size, embedding_dim, padding_idx=self.pad_token_id
+        )
         self.lstm = nn.LSTM(
             embedding_dim,
             hidden_dim,
@@ -341,11 +430,16 @@ class PhoBERTModel(nn.Module):
     """
 
     def __init__(
-        self, model_name="vinai/phobert-base", num_labels=NUM_LABELS, use_crf=False
+        self,
+        model_name="vinai/phobert-base",
+        num_labels=NUM_LABELS,
+        pad_token_id=1,
+        use_crf=False,
     ):
         super().__init__()
         self.use_crf = use_crf
         self.num_labels = num_labels
+        self.pad_token_id = pad_token_id
 
         # Load the base model
         self.bert = AutoModel.from_pretrained(model_name)
@@ -357,7 +451,7 @@ class PhoBERTModel(nn.Module):
 
     def forward(self, input_ids):
         # Automatically generate attention mask from input_ids (1 is PhoBERT's padding token)
-        attention_mask = (input_ids != 1).long()
+        attention_mask = (input_ids != self.pad_token_id).long()
 
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
         sequence_output = outputs[0]  # (batch_size, seq_len, hidden_size)
@@ -382,8 +476,18 @@ class PhoBERTModel(nn.Module):
                 return torch.argmax(logits, dim=-1).cpu().tolist()
 
 
-def PhoBERTLoRA(model_name="vinai/phobert-base", num_labels=NUM_LABELS, use_crf=False):
-    model = PhoBERTModel(model_name=model_name, num_labels=num_labels, use_crf=use_crf)
+def PhoBERTLoRA(
+    model_name="vinai/phobert-base",
+    num_labels=NUM_LABELS,
+    pad_token_id=1,
+    use_crf=False,
+):
+    model = PhoBERTModel(
+        model_name=model_name,
+        num_labels=num_labels,
+        pad_token_id=pad_token_id,
+        use_crf=use_crf,
+    )
 
     cfg = LoRAConfig()
     peft_config = LoraConfig(
@@ -406,53 +510,98 @@ def PhoBERTLoRA(model_name="vinai/phobert-base", num_labels=NUM_LABELS, use_crf=
     return model
 
 
-class NERLoss(nn.Module):
-    """
-    Unified loss function that routes labels and logits depending on whether
-    the model utilizes a CRF decoding layer.
-    """
+class PositionalEncoding(nn.Module):
+    """Lớp mã hóa vị trí cho Transformer thuần từ đầu."""
 
-    def __init__(self, model):
+    def __init__(self, d_model, max_len=512, dropout=0.1):
         super().__init__()
-        self.model = model
-        self.ce = nn.CrossEntropyLoss(ignore_index=-100)
+        self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, outputs, labels, inputs=None):
-        if hasattr(self.model, "use_crf") and self.model.use_crf:
-            return self.model.crf_loss(outputs, labels, inputs)
-        else:
-            return self.ce(outputs.view(-1, outputs.shape[-1]), labels.view(-1))
-
-
-def get_model(model_name, vocab_size, use_crf=False):
-    """Instantiate the requested model class."""
-    if model_name == "lstm":
-        lstm_cfg = LSTMConfig()
-        logger.info(f"Instantiating LSTM model (CRF={use_crf})")
-        return LSTMModel(
-            vocab_size=vocab_size,
-            embedding_dim=lstm_cfg.embedding_dim,
-            hidden_dim=lstm_cfg.hidden_dim,
-            num_labels=NUM_LABELS,
-            dropout=lstm_cfg.dropout,
-            use_crf=use_crf,
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
         )
-    elif model_name == "bilstm":
-        logger.info(f"Instantiating Bidirectional LSTM model (CRF={use_crf})")
-        lstm_cfg = LSTMConfig()
-        return BiLSTMModel(
-            vocab_size=vocab_size,
-            embedding_dim=lstm_cfg.embedding_dim,
-            hidden_dim=lstm_cfg.hidden_dim,
-            num_labels=NUM_LABELS,
-            dropout=lstm_cfg.dropout,
-            use_crf=use_crf,
+
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer("pe", pe)
+
+    def forward(self, x):
+        # x shape: (batch_size, seq_len, d_model)
+        x = x + self.pe[:, : x.size(1)]
+        return self.dropout(x)
+
+
+class TransformerModel(nn.Module):
+    """Mô hình Transformer thuần (Encoder-only) kết hợp tùy chọn lớp CRF cho bài toán NER."""
+
+    def __init__(
+        self,
+        vocab_size,
+        embedding_dim,
+        nhead,
+        num_layers,
+        dim_feedforward,
+        num_labels,
+        max_seq_length=256,
+        dropout=0.1,
+        pad_token_id=1,
+        use_crf=False,
+    ):
+        super().__init__()
+        self.use_crf = use_crf
+        self.num_labels = num_labels
+        self.pad_token_id = pad_token_id
+
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=1)
+        self.pos_encoder = PositionalEncoding(
+            embedding_dim, max_len=max_seq_length, dropout=dropout
         )
-    elif model_name == "phobert":
-        logger.info(f"Instantiating PhoBERT model (CRF={use_crf})")
-        return PhoBERTModel(num_labels=NUM_LABELS, use_crf=use_crf)
-    elif model_name == "phobert-lora":
-        logger.info(f"Instantiating PhoBERT + LoRA model (CRF={use_crf})")
-        return PhoBERTLoRA(num_labels=NUM_LABELS, use_crf=use_crf)
-    else:
-        raise ValueError(f"Unknown model name: {model_name}")
+
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=embedding_dim,
+            nhead=nhead,
+            dim_feedforward=dim_feedforward,
+            dropout=dropout,
+            batch_first=True,
+        )
+        self.transformer_encoder = nn.TransformerEncoder(
+            encoder_layer, num_layers=num_layers
+        )
+
+        self.classifier = nn.Linear(embedding_dim, num_labels)
+
+        if self.use_crf:
+            self.crf = CRFLayer(num_labels)
+
+    def forward(self, input_ids):
+        # Tạo key padding mask từ input_ids (1 là padding token của PhoBERT)
+        src_key_padding_mask = input_ids == self.pad_token_id
+
+        embeds = self.embedding(input_ids)
+        embeds = self.pos_encoder(embeds)
+
+        # Output shape: (batch_size, seq_len, embedding_dim)
+        encoder_out = self.transformer_encoder(
+            embeds, src_key_padding_mask=src_key_padding_mask
+        )
+        logits = self.classifier(encoder_out)
+        return logits
+
+    def crf_loss(self, logits, labels, input_ids=None):
+        mask = labels != -100
+        clean_labels = labels.clone()
+        clean_labels[clean_labels == -100] = LABEL2ID.get("O", 0)
+        return self.crf(logits, clean_labels, mask)
+
+    def decode(self, input_ids):
+        self.eval()
+        with torch.no_grad():
+            logits = self.forward(input_ids)
+            if self.use_crf:
+                mask = input_ids != 1
+                return self.crf.decode(logits, mask)
+            else:
+                return torch.argmax(logits, dim=-1).cpu().tolist()
