@@ -65,9 +65,25 @@ ID2LABEL = {idx: label for idx, label in enumerate(LABEL_LIST)}
 NUM_LABELS = len(LABEL_LIST)
 
 
-# --- Global & Transformer Hyperparameters ---
+# --- Native Transformer Hyperparameters ---
 @dataclass
 class TransformerConfig:
+    embedding_dim: int = 256
+    nhead: int = 8
+    num_layers: int = 4
+    dim_feedforward: int = 512
+    dropout: float = 0.1
+    max_seq_length: int = 256
+    batch_size: int = 32
+    val_batch_size: int = 32
+    epochs: int = 20
+    learning_rate: float = 5e-4
+    patience: int = 5
+
+
+# --- BERT & PhoBERT Hyperparameters ---
+@dataclass
+class BERTConfig:
     max_seq_length: int = 256
     batch_size: int = 16
     val_batch_size: int = 32
