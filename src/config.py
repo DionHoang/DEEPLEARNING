@@ -101,6 +101,9 @@ class LSTMConfig:
     dropout: float = 0.5
     learning_rate: float = 1e-3
     epochs: int = 30
+    max_seq_length: int = 256
+    val_batch_size: int = 32
+    batch_size: int = 32
 
 
 # --- Parameter-Efficient Fine-Tuning (PEFT/LoRA) Configurations ---

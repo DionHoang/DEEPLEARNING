@@ -1,4 +1,3 @@
-from matplotlib import path
 import os
 import shutil
 from typing import Optional, Dict
