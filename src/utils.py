@@ -156,6 +156,23 @@ def plot_loss_curve(history, save_path="results/plots/loss_curve.png"):
     print(f"  -> Saved loss plot to {save_path}")
 
 
+def plot_acc_curve(history, save_path="results/plots/acc_curve.png"):
+    """Plot training and validation accuracy curves."""
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    plt.figure(figsize=(10, 5))
+    plt.plot(history["train_acc"], label="Train Accuracy", marker="o", linewidth=2)
+    plt.plot(history["val_acc"], label="Validation Accuracy", marker="s", linewidth=2)
+    plt.xlabel("Epochs", fontsize=12)
+    plt.ylabel("Accuracy", fontsize=12)
+    plt.title("Training & Validation Accuracy Curve", fontsize=14)
+    plt.legend(fontsize=12)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150)
+    plt.close()
+    print(f"  -> Saved accuracy plot to {save_path}")
+
+
 def plot_f1_curve(history, save_path="results/plots/f1_curve.png"):
     """Plot F1-score evolution over epochs."""
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -241,9 +258,9 @@ def plot_entity_distribution(
     ):
         labels = [labels]
 
-        filtered = [
-            id2label.get(l, "O") for seq in labels for l in seq if l != ignore_index
-        ]
+    filtered = [
+        id2label.get(l, "O") for seq in labels for l in seq if l != ignore_index
+    ]
 
     entity_labels = [l for l in filtered if l != "O"]
 
