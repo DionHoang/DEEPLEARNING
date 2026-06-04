@@ -87,40 +87,23 @@ def run_evaluation(
     return token_report, entity_report, flat_preds, flat_labels, all_preds, all_labels
 
 
-def run_train(args, tf_config, lstm_config, tokenizer, device, LABEL2ID):
+def run_train(args, bert_config, tf_config, lstm_config, tokenizer, device, LABEL2ID):
     logger.info("Loading training and validation datasets...")
 
-    max_seq_length = tf_config.max_seq_length
-    # 1. Đọc dữ liệu raw
+    # Đọc dữ liệu raw
     train_sentences = read_conll(TRAIN_FILE)
     val_sentences = read_conll(DEV_FILE)
 
-    # 2. Áp dụng Data Augmentation cho tập Train
+    # Áp dụng Data Augmentation cho tập Train
     logger.info("Applying Data Augmentation...")
     augmentor = NERDataAugmentor(train_sentences, LABEL2ID)
     augmented_train_sentences = augmentor.generate_augmented_dataset(
         multiplier=1, replace_prob=0.3
     )
 
-    # 3. Khởi tạo Dataset
-    train_dataset = VietnameseNERDataset(
-        augmented_train_sentences, tokenizer, max_seq_length, LABEL2ID
-    )
-    val_dataset = VietnameseNERDataset(
-        val_sentences, tokenizer, max_seq_length, LABEL2ID
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=tf_config.val_batch_size,
-        shuffle=False,
-        num_workers=2,
-        pin_memory=True,
-    )
-
     # Xác định danh sách model cần train
     if "all" in args.model:
-        models_to_train = ["lstm", "bilstm", "phobert", "phobert-lora"]
+        models_to_train = ["lstm", "bilstm", "transformer", "phobert", "phobert-lora"]
     else:
         models_to_train = args.model
 
@@ -130,22 +113,38 @@ def run_train(args, tf_config, lstm_config, tokenizer, device, LABEL2ID):
             f"\n{'='*50}\nBẮT ĐẦU TRAIN MODEL: {current_model.upper()}\n{'='*50}"
         )
 
-        # Đặt lại siêu tham số cho từng model cụ thể để tránh lỗi khi args.model == "all"
-        current_batch_size = args.batch_size or tf_config.batch_size
-        current_epochs = args.epochs or (
-            tf_config.epochs if "phobert" in current_model else lstm_config.epochs
+        if "phobert" in current_model:
+            active_cfg = bert_config
+        elif current_model == "transformer":
+            active_cfg = tf_config
+        else:
+            active_cfg = lstm_config
+
+        current_max_len = active_cfg.max_seq_length
+        current_batch_size = args.batch_size or active_cfg.batch_size
+        current_val_batch_size = active_cfg.val_batch_size
+        current_epochs = args.epochs or active_cfg.epochs
+        current_lr = args.lr or active_cfg.learning_rate
+
+        # Khởi tạo Dataset & DataLoader động theo cấu hình của từng Model
+        train_dataset = VietnameseNERDataset(
+            augmented_train_sentences, tokenizer, current_max_len, LABEL2ID
         )
-        current_lr = args.lr or (
-            tf_config.learning_rate
-            if "phobert" in current_model
-            else lstm_config.learning_rate
+        val_dataset = VietnameseNERDataset(
+            val_sentences, tokenizer, current_max_len, LABEL2ID
         )
 
-        # 4. Khởi tạo DataLoader cho model hiện tại
         train_loader = DataLoader(
             train_dataset,
             batch_size=current_batch_size,
             shuffle=True,
+            num_workers=2,
+            pin_memory=True,
+        )
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=current_val_batch_size,
+            shuffle=False,
             num_workers=2,
             pin_memory=True,
         )
@@ -154,17 +153,13 @@ def run_train(args, tf_config, lstm_config, tokenizer, device, LABEL2ID):
         model = get_model(current_model, tokenizer.vocab_size, use_crf=args.use_crf)
         model = model.to(device)
 
-        optimizer = optim.AdamW(model.parameters(), lr=current_lr)
-        scheduler = ReduceLROnPlateau(
-            optimizer,
-            mode="min",
-            factor=0.5,
-            patience=1,
+        optimizer = optim.AdamW(
+            filter(lambda p: p.requires_grad, model.parameters()), lr=current_lr
         )
+        scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=1)
         criterion = NERLoss(model)
 
         dirs = get_model_dirs(current_model, args.use_crf)
-
         trainer = BaseTrainer(
             model=model,
             optimizer=optimizer,
@@ -177,23 +172,11 @@ def run_train(args, tf_config, lstm_config, tokenizer, device, LABEL2ID):
             run_name=f"{current_model}_crf_{args.use_crf}",
         )
 
-        logger.info(f"Starting training loop for {current_model}...")
-
         start_epoch = 1
-        if args.checkpoint:
-            if os.path.exists(args.checkpoint):
-                logger.info(
-                    f"Đang khôi phục trạng thái từ checkpoint: {args.checkpoint}"
-                )
-                ckpt = trainer.load_checkpoint(args.checkpoint)
-
-                # Lấy số epoch đã hoàn thành từ checkpoint và cộng thêm 1
-                start_epoch = ckpt.get("epoch", 0) + 1
-                logger.info(f"Sẽ tiếp tục huấn luyện từ Epoch thứ {start_epoch}")
-            else:
-                logger.error(
-                    f"Không tìm thấy file checkpoint tại: {args.checkpoint}. Sẽ train lại từ đầu."
-                )
+        if args.checkpoint and os.path.exists(args.checkpoint):
+            logger.info(f"Đang khôi phục trạng thái từ checkpoint: {args.checkpoint}")
+            ckpt = trainer.load_checkpoint(args.checkpoint)
+            start_epoch = ckpt.get("epoch", 0) + 1
 
         results = trainer.train(
             train_loader=train_loader,
@@ -206,24 +189,37 @@ def run_train(args, tf_config, lstm_config, tokenizer, device, LABEL2ID):
             f"Training completed. Best model for {current_model} saved at: {results['best_path']}"
         )
 
+        history = results.get("history")
+        if history:
+            logger.info(f"Generating training plots for {current_model}...")
+            plot_loss_curve(
+                history,
+                save_path=os.path.join(
+                    dirs["plots"], f"{current_model}_loss_curve.png"
+                ),
+            )
+            plot_acc_curve(
+                history,
+                save_path=os.path.join(dirs["plots"], f"{current_model}_acc_curve.png"),
+            )
 
-def run_evaluate(args, tf_config, tokenizer, device, LABEL2ID, ID2LABEL, LABEL_LIST):
+
+def run_evaluate(
+    args,
+    bert_config,
+    tf_config,
+    lstm_config,
+    tokenizer,
+    device,
+    LABEL2ID,
+    ID2LABEL,
+    LABEL_LIST,
+):
     logger.info("Loading evaluation (test) dataset...")
-    max_seq_length = tf_config.max_seq_length
-    val_batch_size = tf_config.val_batch_size
-
-    test_loader = get_dataloader(
-        TEST_FILE,
-        tokenizer,
-        val_batch_size,
-        max_seq_length,
-        LABEL2ID,
-        shuffle=False,
-    )
     test_sentences = read_conll(TEST_FILE)
 
     if "all" in args.model:
-        models_to_eval = ["lstm", "bilstm", "phobert", "phobert-lora"]
+        models_to_eval = ["lstm", "bilstm", "transformer", "phobert", "phobert-lora"]
     else:
         models_to_eval = args.model
 
@@ -231,11 +227,26 @@ def run_evaluate(args, tf_config, tokenizer, device, LABEL2ID, ID2LABEL, LABEL_L
         logger.info(
             f"\n{'='*50}\nBẮT ĐẦU ĐÁNH GIÁ MODEL: {current_model.upper()}\n{'='*50}"
         )
-        model = get_model(current_model, tokenizer.vocab_size, use_crf=args.use_crf)
 
+        if "phobert" in current_model:
+            active_cfg = bert_config
+        elif current_model == "transformer":
+            active_cfg = tf_config
+        else:
+            active_cfg = lstm_config
+
+        test_loader = get_dataloader(
+            TEST_FILE,
+            tokenizer,
+            active_cfg.val_batch_size,
+            active_cfg.max_seq_length,
+            LABEL2ID,
+            shuffle=False,
+        )
+
+        model = get_model(current_model, tokenizer.vocab_size, use_crf=args.use_crf)
         dirs = get_model_dirs(current_model, args.use_crf)
 
-        # Determine checkpoint path
         chk_path = args.checkpoint
         if not chk_path:
             model_checkpoint_dir = dirs["checkpoints"]
@@ -249,32 +260,16 @@ def run_evaluate(args, tf_config, tokenizer, device, LABEL2ID, ID2LABEL, LABEL_L
                     chk_path = sorted(files)[-1]
 
         if not chk_path or not os.path.exists(chk_path):
-            logger.error(
-                f"Error: Không tìm thấy checkpoint cho '{current_model}'. Vui lòng train trước!"
-            )
+            logger.error(f"Error: Could not find checkpoint for '{current_model}'.")
             continue
-        if not chk_path or not os.path.exists(chk_path):
-            logger.error(
-                f"Error: Không tìm thấy checkpoint cho '{current_model}'. Vui lòng train trước!"
-            )
-            continue  # Bỏ qua model này, chạy đánh giá model tiếp theo
 
         logger.info(f"Loading weights from checkpoint: {chk_path}")
         ckpt = torch.load(chk_path, map_location=device)
-        state_dict = ckpt.get("model_state", ckpt)
-        model.load_state_dict(state_dict)
+        model.load_state_dict(ckpt.get("model_state", ckpt))
         model = model.to(device)
 
         pred_save_path = os.path.join(dirs["base"], "predictions.txt")
-
-        (
-            token_report,
-            entity_report,
-            flat_preds,
-            flat_labels,
-            all_preds,
-            all_labels,
-        ) = run_evaluation(
+        token_report, entity_report, flat_preds, flat_labels, _, _ = run_evaluation(
             model,
             test_loader,
             tokenizer,
@@ -285,17 +280,14 @@ def run_evaluate(args, tf_config, tokenizer, device, LABEL2ID, ID2LABEL, LABEL_L
 
         logger.info(f"\nToken-Level Evaluation Report ({current_model.upper()}):")
         logger.info(f"Overall Accuracy: {token_report['accuracy']:.4f}")
-        logger.info(f"Macro Precision: {token_report['macro avg']['precision']:.4f}")
-        logger.info(f"Macro Recall: {token_report['macro avg']['recall']:.4f}")
         logger.info(f"Macro F1-Score: {token_report['macro avg']['f1-score']:.4f}")
-
         logger.info(f"\nEntity-Level BIO Evaluation Report ({current_model.upper()}):")
-        logger.info(f"Overall Precision: {entity_report['overall']['precision']:.4f}")
-        logger.info(f"Overall Recall: {entity_report['overall']['recall']:.4f}")
         logger.info(f"Overall F1-Score: {entity_report['overall']['f1-score']:.4f}")
-
-        # Plot evaluation curves and reports
-        logger.info("Generating performance evaluation plots...")
+        logger.info(
+            f"\nDetailed Entity Report ({current_model.upper()}):\n{entity_report['report']}"
+        )
+        csv_path = os.path.join(dirs["base"], f"{current_model}_token_metrics.csv")
+        save_metrics_csv(token_report, csv_path)
 
         plot_confusion_matrix(
             flat_preds,
@@ -310,15 +302,14 @@ def run_evaluate(args, tf_config, tokenizer, device, LABEL2ID, ID2LABEL, LABEL_L
         )
 
 
-def run_infer(args, tf_config, tokenizer, device, ID2LABEL):
-    max_seq_length = tf_config.max_seq_length
-
+def run_infer(args, bert_config, tf_config, lstm_config, tokenizer, device, ID2LABEL):
+    """Chạy dự đoán (Inference) thực tế hỗ trợ đầy đủ các mô hình bao gồm Transformer thuần."""
     if not args.infer_text:
         logger.error("Error: --infer_text is required when --mode is set to 'infer'.")
         return
 
     if "all" in args.model:
-        models_to_infer = ["lstm", "bilstm", "phobert", "phobert-lora"]
+        models_to_infer = ["lstm", "bilstm", "transformer", "phobert", "phobert-lora"]
     else:
         models_to_infer = args.model
 
@@ -326,23 +317,35 @@ def run_infer(args, tf_config, tokenizer, device, ID2LABEL):
         logger.info(
             f"\n{'='*50}\nBẮT ĐẦU INFER VỚI MODEL: {current_model.upper()}\n{'='*50}"
         )
-        model = get_model(current_model, tokenizer.vocab_size, use_crf=args.use_crf)
 
+        # Cấu hình động cho từng model tránh bị lệch max_length
+        if "phobert" in current_model:
+            active_cfg = bert_config
+        elif current_model == "transformer":
+            active_cfg = tf_config
+        else:
+            active_cfg = lstm_config
+
+        max_seq_length = active_cfg.max_seq_length
+
+        model = get_model(current_model, tokenizer.vocab_size, use_crf=args.use_crf)
         dirs = get_model_dirs(current_model, args.use_crf)
 
         chk_path = args.checkpoint
         if not chk_path:
             model_checkpoint_dir = dirs["checkpoints"]
             if os.path.exists(model_checkpoint_dir):
-                files = [
-                    os.path.join(model_checkpoint_dir, f)
-                    for f in os.listdir(model_checkpoint_dir)
-                    if "model.pt" in f
-                ]
-                if files:
-                    chk_path = sorted(files)[-1]
+                if "best_model.pt" in os.listdir(model_checkpoint_dir):
+                    chk_path = os.path.join(model_checkpoint_dir, "best_model.pt")
+                else:
+                    files = [
+                        os.path.join(model_checkpoint_dir, f)
+                        for f in os.listdir(model_checkpoint_dir)
+                        if "model.pt" in f and "best" not in f
+                    ]
+                    if files:
+                        chk_path = sorted(files)[-1]
 
-        # CHỐT CHẶN NGHIÊM NGẶT
         if not chk_path or not os.path.exists(chk_path):
             logger.error(
                 f"Error: Trained checkpoint required for inference on '{current_model}'."
@@ -351,7 +354,7 @@ def run_infer(args, tf_config, tokenizer, device, ID2LABEL):
 
         is_quantized = "quantized" in chk_path
 
-        # 1. Force CPU fallback for quantized models (PTQ does not support GPU execution)
+        # Lượng tử hóa PTQ chạy trên CPU
         if is_quantized:
             device = torch.device("cpu")
             logger.info(
@@ -359,11 +362,8 @@ def run_infer(args, tf_config, tokenizer, device, ID2LABEL):
             )
 
         logger.info(f"Loading weights from {chk_path}")
-
-        # 2. Disable default weights_only restriction introduced in PyTorch 2.6 to allow ScriptObject loading
         ckpt = torch.load(chk_path, map_location=device, weights_only=False)
 
-        # 3. Restructure baseline model to quantized architecture prior to state_dict loading
         if is_quantized:
             logger.info(
                 "Adapting base model architecture to quantized dynamic layout..."
@@ -379,7 +379,7 @@ def run_infer(args, tf_config, tokenizer, device, ID2LABEL):
         words = segmented_text.split()
 
         input_ids_list = [tokenizer.cls_token_id]
-        word_ids = [None]  # Lưu vết index của từ gốc
+        word_ids = [None]  # Theo dõi sub-words thuộc từ gốc nào
 
         for word_idx, word in enumerate(words):
             tokens = tokenizer.tokenize(word)
@@ -387,7 +387,6 @@ def run_infer(args, tf_config, tokenizer, device, ID2LABEL):
                 continue
             ids = tokenizer.convert_tokens_to_ids(tokens)
             input_ids_list.extend(ids)
-            # Đánh dấu sub-words này thuộc về từ (word_idx) nào
             word_ids.extend([word_idx] * len(ids))
 
         input_ids_list.append(tokenizer.sep_token_id)
@@ -409,7 +408,14 @@ def run_infer(args, tf_config, tokenizer, device, ID2LABEL):
         input_ids = torch.tensor([input_ids_list], dtype=torch.long).to(device)
 
         with torch.no_grad():
-            preds = model.decode(input_ids)[0]
+            decoded_output = model.decode(input_ids)
+            if hasattr(model, "use_crf") and model.use_crf:
+                preds = decoded_output[0]
+            else:
+                if isinstance(decoded_output[0], list):
+                    preds = decoded_output[0]
+                else:
+                    preds = decoded_output
 
         word_preds = ["O"] * len(words)
         previous_word_idx = None
@@ -430,21 +436,21 @@ def run_infer(args, tf_config, tokenizer, device, ID2LABEL):
 
 
 def run_distill(
-    args, tf_config, lstm_config, kd_config, tokenizer, device, LABEL2ID, NUM_LABELS
+    args,
+    bert_config,
+    tf_config,
+    lstm_config,
+    kd_config,
+    tokenizer,
+    device,
+    LABEL2ID,
+    NUM_LABELS,
 ):
+    """Hỗ trợ Đa kiến trúc tri thức - Cho phép Distill PhoBERT sang cả LSTM và Transformer Student."""
     logger.info("=== KNOWLEDGE DISTILLATION ===")
 
-    max_seq_length = tf_config.max_seq_length
-    val_batch_size = tf_config.val_batch_size
-    batch_size = args.batch_size or tf_config.batch_size
-    epochs = args.epochs or (
-        tf_config.epochs if "phobert" in args.model else lstm_config.epochs
-    )
-
-    # Teacher model luôn là PhoBERT, chỉ cần load 1 lần ngoài vòng lặp
+    # Teacher mặc định luôn cố định cấu hình theo PhoBERT base
     teacher = PhoBERTModel(num_labels=NUM_LABELS, use_crf=False)
-
-    # Lấy thư mục của Teacher
     teacher_dirs = get_model_dirs("phobert", False)
 
     chk_path = args.checkpoint
@@ -470,35 +476,46 @@ def run_distill(
     teacher.load_state_dict(ckpt.get("model_state", ckpt))
     teacher = teacher.to(device)
 
+    # Thêm cấu hình phân bổ Student
     if "all" in args.model:
-        models_to_distill = ["lstm", "bilstm"]
+        models_to_distill = ["lstm", "bilstm", "transformer"]
     else:
         models_to_distill = args.model
-
-    train_loader = get_dataloader(
-        TRAIN_FILE, tokenizer, batch_size, max_seq_length, LABEL2ID, shuffle=True
-    )
-    val_loader = get_dataloader(
-        DEV_FILE, tokenizer, val_batch_size, max_seq_length, LABEL2ID, shuffle=False
-    )
 
     for current_model in models_to_distill:
         logger.info(
             f"\n{'='*50}\nBẮT ĐẦU DISTILL VÀO STUDENT MODEL: {current_model.upper()}\n{'='*50}"
         )
+
+        # Định cấu hình tham số chuẩn xác cho từng loại Student
+        if current_model == "transformer":
+            student_cfg = tf_config
+        else:
+            student_cfg = lstm_config
+
+        max_seq_length = student_cfg.max_seq_length
+        val_batch_size = student_cfg.val_batch_size
+        batch_size = args.batch_size or student_cfg.batch_size
+        epochs = args.epochs or student_cfg.epochs
+        learning_rate = student_cfg.learning_rate
+
+        train_loader = get_dataloader(
+            TRAIN_FILE, tokenizer, batch_size, max_seq_length, LABEL2ID, shuffle=True
+        )
+        val_loader = get_dataloader(
+            DEV_FILE, tokenizer, val_batch_size, max_seq_length, LABEL2ID, shuffle=False
+        )
+
         student = get_model(current_model, tokenizer.vocab_size, use_crf=args.use_crf)
         student = student.to(device)
 
-        optimizer = optim.AdamW(student.parameters(), lr=lstm_config.learning_rate)
-        scheduler = ReduceLROnPlateau(
-            optimizer,
-            mode="min",
-            factor=0.5,
-            patience=1,
+        # Sử dụng đúng học bổng học tập của Student được cấu hình riêng biệt
+        optimizer = optim.AdamW(
+            filter(lambda p: p.requires_grad, student.parameters()), lr=learning_rate
         )
+        scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=1)
         criterion = NERLoss(student)
 
-        # Lấy thư mục của Student
         student_dirs = get_model_dirs(current_model, args.use_crf)
 
         trainer = DistillationTrainer(
@@ -510,43 +527,56 @@ def run_distill(
             scheduler=scheduler,
             alpha=kd_config.alpha,
             temperature=kd_config.temperature,
-            save_dir=student_dirs["checkpoints"],  # Sửa ở đây
-            tensorboard_dir=student_dirs[
-                "tensorboard"
-            ],  # Thêm vào cho đủ BaseTrainer args
-            log_dir=student_dirs["logs"],  # Thêm vào cho đủ BaseTrainer args
-            run_name=f"student_distilled_{current_model}",
+            save_dir=student_dirs["checkpoints"],
+            tensorboard_dir=student_dirs["tensorboard"],
+            log_dir=student_dirs["logs"],
+            run_name=f"student_distilled_{current_model}_crf_{args.use_crf}",
         )
 
-        logger.info(f"Starting Knowledge Distillation for {current_model}...")
+        logger.info(f"Starting Knowledge Distillation for Student: {current_model}...")
         results = trainer.train(train_loader, val_loader, epochs=epochs)
         logger.info(
             f"Distillation finished. Best checkpoint for {current_model} saved at: {results['best_path']}"
         )
 
 
-def run_quantize(args, tf_config, tokenizer, device, LABEL2ID, ID2LABEL):
+def run_quantize(
+    args, bert_config, tf_config, lstm_config, tokenizer, device, LABEL2ID, ID2LABEL
+):
+    """Nén mô hình động PTQ, hỗ trợ thêm nén kiến trúc Transformer thuần tuần tự."""
     logger.info("=== MODEL COMPRESSION (QUANTIZATION) ===")
 
-    max_seq_length = tf_config.max_seq_length
-    val_batch_size = tf_config.val_batch_size
-
-    # Lượng tử hóa thường nhắm vào LSTM chạy CPU
-    models_to_quantize = ["lstm", "bilstm"] if "all" in args.model else args.model
+    # Bổ sung transformer vào danh sách các mô hình có thể nén được bằng tuyến tính (Linear-heavy)
+    if "all" in args.model:
+        models_to_quantize = ["lstm", "bilstm", "transformer"]
+    else:
+        models_to_quantize = args.model
 
     for current_model in models_to_quantize:
+        if current_model == "phobert" or current_model == "phobert-lora":
+            logger.warning(
+                f"Skipping {current_model}. Large Transformer models require specialized quantization (e.g. bitsandbytes 4-bit)."
+            )
+            continue
+
         logger.info(
             f"\n{'='*50}\nBẮT ĐẦU QUANTIZE MODEL: {current_model.upper()}\n{'='*50}"
         )
-        model = get_model(current_model, tokenizer.vocab_size, use_crf=args.use_crf)
 
-        # Khởi tạo dirs
+        if current_model == "transformer":
+            active_cfg = tf_config
+        else:
+            active_cfg = lstm_config
+
+        max_seq_length = active_cfg.max_seq_length
+        val_batch_size = active_cfg.val_batch_size
+
+        model = get_model(current_model, tokenizer.vocab_size, use_crf=args.use_crf)
         dirs = get_model_dirs(current_model, args.use_crf)
 
         chk_path = args.checkpoint
         if not chk_path:
-            model_checkpoint_dir = dirs["checkpoints"]  # Sửa ở đây
-
+            model_checkpoint_dir = dirs["checkpoints"]
             if os.path.exists(model_checkpoint_dir):
                 files = [
                     os.path.join(model_checkpoint_dir, f)
@@ -568,22 +598,17 @@ def run_quantize(args, tf_config, tokenizer, device, LABEL2ID, ID2LABEL):
         model = model.to("cpu")
 
         logger.info("Performing Post-Training Dynamic Quantization (PTQ)...")
+        # Nén các layer Linear & LSTM bên trong mô hình về dạng INT8
         quantized_model = quantize_utils.quantize_dynamic_ptq(model)
 
-        # Lưu file vào đúng thư mục checkpoint của model đó
         q_save_path = os.path.join(
-            dirs["checkpoints"], f"{current_model}_quantized_ptq.pt"  # Sửa ở đây
+            dirs["checkpoints"], f"{current_model}_quantized_ptq.pt"
         )
         torch.save(quantized_model.state_dict(), q_save_path)
         logger.info(f"Quantized dynamic PTQ model saved at: {q_save_path}")
 
         val_loader = get_dataloader(
-            DEV_FILE,
-            tokenizer,
-            val_batch_size,
-            max_seq_length,
-            LABEL2ID,
-            shuffle=False,
+            DEV_FILE, tokenizer, val_batch_size, max_seq_length, LABEL2ID, shuffle=False
         )
 
         logger.info(f"Evaluating quantized {current_model} on Validation set (CPU)...")
