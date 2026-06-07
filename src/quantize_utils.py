@@ -34,6 +34,7 @@ def quantize_dynamic_ptq(
     quantized = torch.quantization.quantize_dynamic(
         model, operators_to_quantize, dtype=dtype
     )
+
     try:
         logger.info("Applied dynamic PTQ quantization")
         total, trainable = print_model_size(model, model_name="quantized_model")
