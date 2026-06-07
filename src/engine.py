@@ -354,24 +354,21 @@ def run_infer(args, bert_config, tf_config, lstm_config, tokenizer, device, ID2L
 
         is_quantized = "quantized" in chk_path
 
-        # Lượng tử hóa PTQ chạy trên CPU
         if is_quantized:
-            device = torch.device("cpu")
             logger.info(
                 "Quantized model detected. Forcing CPU fallback for compatibility."
             )
+            infer_device = torch.device("cpu")
+            logger.info(f"Loading full quantized object from {chk_path}")
+            # Load trực tiếp toàn bộ object
+            model = torch.load(chk_path, map_location=infer_device, weights_only=False)
+        else:
+            infer_device = device
+            logger.info(f"Loading weights from {chk_path}")
+            ckpt = torch.load(chk_path, map_location=infer_device, weights_only=False)
+            model.load_state_dict(ckpt.get("model_state", ckpt))
 
-        logger.info(f"Loading weights from {chk_path}")
-        ckpt = torch.load(chk_path, map_location=device, weights_only=False)
-
-        if is_quantized:
-            logger.info(
-                "Adapting base model architecture to quantized dynamic layout..."
-            )
-            model = quantize_utils.quantize_dynamic_ptq(model)
-
-        model.load_state_dict(ckpt.get("model_state", ckpt))
-        model = model.to(device)
+        model = model.to(infer_device)
         model.eval()
 
         logger.info(f"Input sentence: {args.infer_text}")
@@ -405,17 +402,14 @@ def run_infer(args, bert_config, tf_config, lstm_config, tokenizer, device, ID2L
             input_ids_list.extend([tokenizer.pad_token_id] * padding_len)
             word_ids.extend([None] * padding_len)
 
-        input_ids = torch.tensor([input_ids_list], dtype=torch.long).to(device)
+        input_ids = torch.tensor([input_ids_list], dtype=torch.long).to(infer_device)
 
         with torch.no_grad():
             decoded_output = model.decode(input_ids)
-            if hasattr(model, "use_crf") and model.use_crf:
-                preds = decoded_output[0]
-            else:
-                if isinstance(decoded_output[0], list):
-                    preds = decoded_output[0]
-                else:
-                    preds = decoded_output
+            if not decoded_output:
+                logger.warning("Model returned empty decode output.")
+                continue
+            preds = decoded_output[0]
 
         word_preds = ["O"] * len(words)
         previous_word_idx = None
@@ -429,9 +423,9 @@ def run_infer(args, bert_config, tf_config, lstm_config, tokenizer, device, ID2L
         logger.info(f"\n--- INFERENCE RESULTS ({current_model.upper()}) ---")
         for word, tag in zip(words, word_preds):
             if tag != "O":
-                logger.info(f"\033[92m{word} [{tag}]\033[0m", extra={"simple": True})
+                print(f"\033[92m{word} [{tag}]\033[0m")
             else:
-                logger.info(word, extra={"simple": True})
+                print(word)
         logger.info("-------------------------")
 
 
@@ -599,12 +593,24 @@ def run_quantize(
 
         logger.info("Performing Post-Training Dynamic Quantization (PTQ)...")
         # Nén các layer Linear & LSTM bên trong mô hình về dạng INT8
-        quantized_model = quantize_utils.quantize_dynamic_ptq(model)
+        if current_model == "transformer":
+            logger.warning(
+                "Applying PTQ bypass for Transformer to avoid 'device' attribute bug."
+            )
+            ops_to_quantize = {
+                nn.Linear
+            }  # Transformer không có LSTM, giúp bypass an toàn
+        else:
+            ops_to_quantize = {nn.Linear, nn.LSTM}
+
+        quantized_model = quantize_utils.quantize_dynamic_ptq(
+            model, operators_to_quantize=ops_to_quantize
+        )
 
         q_save_path = os.path.join(
             dirs["checkpoints"], f"{current_model}_quantized_ptq.pt"
         )
-        torch.save(quantized_model.state_dict(), q_save_path)
+        torch.save(quantized_model, q_save_path)
         logger.info(f"Quantized dynamic PTQ model saved at: {q_save_path}")
 
         val_loader = get_dataloader(
@@ -623,3 +629,76 @@ def run_quantize(
         logger.info(
             f"Quantized Model ({current_model}) Entity F1-Score: {entity_report['overall']['f1-score']:.4f}"
         )
+
+
+def run_train_qat(
+    args, bert_config, tf_config, lstm_config, tokenizer, device, LABEL2ID
+):
+    logger.info("=== STARTING QUANTIZATION AWARE TRAINING (QAT) ===")
+
+    # Đọc data (tương tự run_train)
+    train_sentences = read_conll(TRAIN_FILE)
+    val_sentences = read_conll(DEV_FILE)
+
+    models_to_train = ["transformer"] if "all" in args.model else args.model
+
+    for current_model in models_to_train:
+        if current_model in ["phobert", "phobert-lora"]:
+            logger.warning(
+                f"Skipping QAT for {current_model}. HF models need specific int8 configs."
+            )
+            continue
+
+        logger.info(f"\n{'='*50}\nBẮT ĐẦU QAT MODEL: {current_model.upper()}\n{'='*50}")
+
+        active_cfg = tf_config if current_model == "transformer" else lstm_config
+
+        train_loader = get_dataloader(
+            TRAIN_FILE,
+            tokenizer,
+            active_cfg.batch_size,
+            active_cfg.max_seq_length,
+            LABEL2ID,
+            shuffle=True,
+        )
+        val_loader = get_dataloader(
+            DEV_FILE,
+            tokenizer,
+            active_cfg.val_batch_size,
+            active_cfg.max_seq_length,
+            LABEL2ID,
+            shuffle=False,
+        )
+
+        model = get_model(current_model, tokenizer.vocab_size, use_crf=args.use_crf)
+
+        optimizer = optim.AdamW(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr=active_cfg.learning_rate,
+        )
+        criterion = NERLoss(model)
+        dirs = get_model_dirs(
+            f"{current_model}_qat", args.use_crf
+        )  # Lưu riêng thư mục qat
+
+        # Khởi tạo QuantizationTrainer thay vì BaseTrainer
+        trainer = QuantizationTrainer(
+            model=model,
+            optimizer=optimizer,
+            criterion=criterion,
+            device=device,
+            quantize_utils=quantize_utils,  # Truyền utils vào
+            save_dir=dirs["checkpoints"],
+            tensorboard_dir=dirs["tensorboard"],
+            log_dir=dirs["logs"],
+            run_name=f"{current_model}_qat_crf_{args.use_crf}",
+            force_convert_to_cpu=True,
+        )
+
+        results = trainer.train(
+            train_loader=train_loader,
+            val_loader=val_loader,
+            epochs=active_cfg.epochs,
+            early_stop=args.patience,
+        )
+        logger.info(f"QAT completed. Quantized model ready for deployment.")

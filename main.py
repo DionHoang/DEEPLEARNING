@@ -2,8 +2,6 @@ import os
 import argparse
 import logging
 import torch
-import torch.nn as nn
-import torch.optim as optim
 from transformers import AutoTokenizer
 from pyvi import ViTokenizer
 
@@ -43,7 +41,7 @@ def main():
         "--mode",
         type=str,
         default="train",
-        choices=["train", "evaluate", "infer", "distill", "quantize"],
+        choices=["train", "evaluate", "infer", "distill", "quantize", "train_qat"],
         help="Action mode for pipeline execution.",
     )
     parser.add_argument(
@@ -184,6 +182,10 @@ def main():
             ID2LABEL,
         )
 
+    elif args.mode == "train_qat":
+        run_train_qat(
+            args, bert_config, tf_config, lstm_config, tokenizer, device, LABEL2ID
+        )
     else:
         logger.error(f"Unknown mode: {args.mode}")
 

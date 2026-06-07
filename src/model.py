@@ -353,11 +353,11 @@ class LSTMModel(nn.Module):
         return self.crf(logits, clean_labels, mask)
 
     def decode(self, input_ids):
-        self.eval()
+        # Perform inference without altering training/eval mode
         with torch.no_grad():
             logits = self.forward(input_ids)
             if self.use_crf:
-                mask = input_ids != 1  # 1 is typical padding token in PhoBERT
+                mask = input_ids != self.pad_token_id
                 return self.crf.decode(logits, mask)
             else:
                 return torch.argmax(logits, dim=-1).cpu().tolist()
@@ -414,7 +414,7 @@ class BiLSTMModel(nn.Module):
         return self.crf(logits, clean_labels, mask)
 
     def decode(self, input_ids):
-        self.eval()
+        # Perform inference without altering training/eval mode
         with torch.no_grad():
             logits = self.forward(input_ids)
             if self.use_crf:
@@ -466,7 +466,7 @@ class PhoBERTModel(nn.Module):
         return self.crf(logits, clean_labels, mask)
 
     def decode(self, input_ids):
-        self.eval()
+        # Perform inference without altering training/eval mode
         with torch.no_grad():
             logits = self.forward(input_ids)
             if self.use_crf:
@@ -475,45 +475,68 @@ class PhoBERTModel(nn.Module):
             else:
                 return torch.argmax(logits, dim=-1).cpu().tolist()
 
+    # Override state_dict to bypass PEFT's aggressive filtering if you want
+    # to save the entire model in PyTorch's native format.
+    def state_dict(self, *args, **kwargs):
+        # Force return of all parameters, not just adapters
+        return super().state_dict(*args, **kwargs)
 
-def PhoBERTLoRA(
-    model_name="vinai/phobert-base",
-    num_labels=NUM_LABELS,
-    pad_token_id=1,
-    use_crf=False,
-):
-    model = PhoBERTModel(
-        model_name=model_name,
-        num_labels=num_labels,
-        pad_token_id=pad_token_id,
-        use_crf=use_crf,
-    )
 
-    cfg = LoRAConfig()
-    peft_config = LoraConfig(
-        task_type=None,
-        r=cfg.r,
-        lora_alpha=cfg.alpha,
-        lora_dropout=cfg.dropout,
-        target_modules=["query", "value"],
-    )
-    model.bert = get_peft_model(model.bert, peft_config)
+# model.py
+class PhoBERTLoRA(nn.Module):
+    def __init__(
+        self,
+        model_name="vinai/phobert-base",
+        num_labels=NUM_LABELS,
+        pad_token_id=1,
+        use_crf=False,
+    ):
+        super().__init__()
+        # Kế thừa lõi từ PhoBERTModel
+        self.base_model = PhoBERTModel(
+            model_name=model_name,
+            num_labels=num_labels,
+            pad_token_id=pad_token_id,
+            use_crf=use_crf,
+        )
 
-    # unfreeze classifier and crf
-    for param in model.classifier.parameters():
-        param.requires_grad = True
+        cfg = LoRAConfig()
+        peft_config = LoraConfig(
+            task_type=None,
+            r=cfg.r,
+            lora_alpha=cfg.alpha,
+            lora_dropout=cfg.dropout,
+            target_modules=["query", "value"],
+        )
 
-    if use_crf and hasattr(model, "crf"):
-        for param in model.crf.parameters():
+        self.base_model.bert = get_peft_model(self.base_model.bert, peft_config)
+
+        # Unfreeze classifier and crf
+        for param in self.base_model.classifier.parameters():
             param.requires_grad = True
 
-    return model
+        if use_crf and hasattr(self.base_model, "crf"):
+            for param in self.base_model.crf.parameters():
+                param.requires_grad = True
+
+    @property
+    def use_crf(self):
+        return self.base_model.use_crf
+
+    def forward(self, input_ids):
+        return self.base_model(input_ids)
+
+    def crf_loss(self, logits, labels, input_ids=None):
+        return self.base_model.crf_loss(logits, labels, input_ids)
+
+    def decode(self, input_ids):
+        return self.base_model.decode(input_ids)
 
 
 class PositionalEncoding(nn.Module):
     """Lớp mã hóa vị trí cho Transformer thuần từ đầu."""
 
-    def __init__(self, d_model, max_len=512, dropout=0.1):
+    def __init__(self, d_model, max_len=256, dropout=0.1):
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 
@@ -555,7 +578,9 @@ class TransformerModel(nn.Module):
         self.num_labels = num_labels
         self.pad_token_id = pad_token_id
 
-        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=1)
+        self.embedding = nn.Embedding(
+            vocab_size, embedding_dim, padding_idx=pad_token_id
+        )
         self.pos_encoder = PositionalEncoding(
             embedding_dim, max_len=max_seq_length, dropout=dropout
         )
@@ -568,7 +593,7 @@ class TransformerModel(nn.Module):
             batch_first=True,
         )
         self.transformer_encoder = nn.TransformerEncoder(
-            encoder_layer, num_layers=num_layers
+            encoder_layer, num_layers=num_layers, enable_nested_tensor=False
         )
 
         self.classifier = nn.Linear(embedding_dim, num_labels)
@@ -583,10 +608,10 @@ class TransformerModel(nn.Module):
         embeds = self.embedding(input_ids)
         embeds = self.pos_encoder(embeds)
 
-        # Output shape: (batch_size, seq_len, embedding_dim)
         encoder_out = self.transformer_encoder(
             embeds, src_key_padding_mask=src_key_padding_mask
         )
+
         logits = self.classifier(encoder_out)
         return logits
 
@@ -597,11 +622,11 @@ class TransformerModel(nn.Module):
         return self.crf(logits, clean_labels, mask)
 
     def decode(self, input_ids):
-        self.eval()
+        # Perform inference without altering training/eval mode
         with torch.no_grad():
             logits = self.forward(input_ids)
             if self.use_crf:
-                mask = input_ids != 1
+                mask = input_ids != self.pad_token_id
                 return self.crf.decode(logits, mask)
             else:
                 return torch.argmax(logits, dim=-1).cpu().tolist()

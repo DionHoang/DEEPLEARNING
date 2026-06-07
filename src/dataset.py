@@ -178,8 +178,13 @@ def get_dataloader(file_path, tokenizer, batch_size, max_len, label2id, shuffle=
     sentences = read_conll(file_path)
     dataset = VietnameseNERDataset(sentences, tokenizer, max_len, label2id)
 
+    workers = 0 if os.name == "nt" else 2
     dataloader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=shuffle, num_workers=2, pin_memory=True
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=workers,
+        pin_memory=True,
     )
 
     return dataloader
