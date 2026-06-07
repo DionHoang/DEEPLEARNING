@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import transformers
 
-transformers.utils.logging.set_verbosity_error()  # Ẩn các log không cần thiết của transformers
+transformers.utils.logging.set_verbosity_error()  # Suppress non-essential transformers logs
 
 logger = setup_logger("engine")
 
@@ -90,24 +90,24 @@ def run_evaluation(
 def run_train(args, bert_config, tf_config, lstm_config, tokenizer, device, LABEL2ID):
     logger.info("Loading training and validation datasets...")
 
-    # Đọc dữ liệu raw
+    # Read raw CoNLL-formatted data files
     train_sentences = read_conll(TRAIN_FILE)
     val_sentences = read_conll(DEV_FILE)
 
-    # Áp dụng Data Augmentation cho tập Train
+    # Apply data augmentation to the training set
     logger.info("Applying Data Augmentation...")
     augmentor = NERDataAugmentor(train_sentences, LABEL2ID)
     augmented_train_sentences = augmentor.generate_augmented_dataset(
         multiplier=1, replace_prob=0.3
     )
 
-    # Xác định danh sách model cần train
+    # Determine which models to train
     if "all" in args.model:
         models_to_train = ["lstm", "bilstm", "transformer", "phobert", "phobert-lora"]
     else:
         models_to_train = args.model
 
-    # Vòng lặp train lần lượt các model
+    # Loop over models to train them sequentially
     for current_model in models_to_train:
         logger.info(
             f"\n{'='*50}\nBẮT ĐẦU TRAIN MODEL: {current_model.upper()}\n{'='*50}"
@@ -126,7 +126,7 @@ def run_train(args, bert_config, tf_config, lstm_config, tokenizer, device, LABE
         current_epochs = args.epochs or active_cfg.epochs
         current_lr = args.lr or active_cfg.learning_rate
 
-        # Khởi tạo Dataset & DataLoader động theo cấu hình của từng Model
+        # Initialize Dataset & DataLoader according to the active model configuration
         train_dataset = VietnameseNERDataset(
             augmented_train_sentences, tokenizer, current_max_len, LABEL2ID
         )
@@ -152,11 +152,40 @@ def run_train(args, bert_config, tf_config, lstm_config, tokenizer, device, LABE
         logger.info(f"Initializing {current_model} model for training...")
         model = get_model(current_model, tokenizer.vocab_size, use_crf=args.use_crf)
         model = model.to(device)
+        if current_model == "phobert-lora":
+            lora_params, classifier_params, crf_params = [], [], []
+            for name, param in model.named_parameters():
+                if not param.requires_grad:
+                    continue
+                if "classifier" in name:
+                    classifier_params.append(param)
+                elif "crf" in name:
+                    crf_params.append(param)
+                else:
+                    lora_params.append(param)
 
-        optimizer = optim.AdamW(
-            filter(lambda p: p.requires_grad, model.parameters()), lr=current_lr
-        )
-        scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=1)
+            param_groups = [
+                {"params": lora_params, "lr": 2e-4},
+                {"params": classifier_params, "lr": 1e-3},
+            ]
+            if crf_params:
+                param_groups.append({"params": crf_params, "lr": 1e-3})
+            optimizer = optim.AdamW(param_groups)
+            scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=1)
+
+            from transformers import get_linear_schedule_with_warmup
+
+            total_steps = len(train_loader) * current_epochs
+            warmup_steps = int(total_steps * LoRAConfig().warmup_ratio)
+            scheduler = get_linear_schedule_with_warmup(
+                optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps
+            )
+
+        else:
+            optimizer = optim.AdamW(
+                filter(lambda p: p.requires_grad, model.parameters()), lr=current_lr
+            )
+            scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=1)
         criterion = NERLoss(model)
 
         dirs = get_model_dirs(current_model, args.use_crf)
@@ -174,7 +203,7 @@ def run_train(args, bert_config, tf_config, lstm_config, tokenizer, device, LABE
 
         start_epoch = 1
         if args.checkpoint and os.path.exists(args.checkpoint):
-            logger.info(f"Đang khôi phục trạng thái từ checkpoint: {args.checkpoint}")
+            logger.info(f"Restoring state from checkpoint: {args.checkpoint}")
             ckpt = trainer.load_checkpoint(args.checkpoint)
             start_epoch = ckpt.get("epoch", 0) + 1
 
@@ -303,7 +332,7 @@ def run_evaluate(
 
 
 def run_infer(args, bert_config, tf_config, lstm_config, tokenizer, device, ID2LABEL):
-    """Chạy dự đoán (Inference) thực tế hỗ trợ đầy đủ các mô hình bao gồm Transformer thuần."""
+    """Run inference supporting all model variants including the pure Transformer."""
     if not args.infer_text:
         logger.error("Error: --infer_text is required when --mode is set to 'infer'.")
         return
@@ -318,7 +347,7 @@ def run_infer(args, bert_config, tf_config, lstm_config, tokenizer, device, ID2L
             f"\n{'='*50}\nBẮT ĐẦU INFER VỚI MODEL: {current_model.upper()}\n{'='*50}"
         )
 
-        # Cấu hình động cho từng model tránh bị lệch max_length
+        # Dynamically select model configuration to avoid mismatched max_length
         if "phobert" in current_model:
             active_cfg = bert_config
         elif current_model == "transformer":
@@ -360,7 +389,7 @@ def run_infer(args, bert_config, tf_config, lstm_config, tokenizer, device, ID2L
             )
             infer_device = torch.device("cpu")
             logger.info(f"Loading full quantized object from {chk_path}")
-            # Load trực tiếp toàn bộ object
+            # Load the full quantized object directly
             model = torch.load(chk_path, map_location=infer_device, weights_only=False)
         else:
             infer_device = device
@@ -376,7 +405,7 @@ def run_infer(args, bert_config, tf_config, lstm_config, tokenizer, device, ID2L
         words = segmented_text.split()
 
         input_ids_list = [tokenizer.cls_token_id]
-        word_ids = [None]  # Theo dõi sub-words thuộc từ gốc nào
+        word_ids = [None]  # Track which original word each subword belongs to
 
         for word_idx, word in enumerate(words):
             tokens = tokenizer.tokenize(word)
@@ -440,10 +469,10 @@ def run_distill(
     LABEL2ID,
     NUM_LABELS,
 ):
-    """Hỗ trợ Đa kiến trúc tri thức - Cho phép Distill PhoBERT sang cả LSTM và Transformer Student."""
+    """Multi-architecture knowledge distillation: distill PhoBERT into LSTM/Transformer students."""
     logger.info("=== KNOWLEDGE DISTILLATION ===")
 
-    # Teacher mặc định luôn cố định cấu hình theo PhoBERT base
+    # The teacher model is fixed to the PhoBERT-base configuration
     teacher = PhoBERTModel(num_labels=NUM_LABELS, use_crf=args.use_crf)
     teacher_dirs = get_model_dirs("phobert", args.use_crf)
 
@@ -470,7 +499,7 @@ def run_distill(
     teacher.load_state_dict(ckpt.get("model_state", ckpt))
     teacher = teacher.to(device)
 
-    # Thêm cấu hình phân bổ Student
+    # Configure which student models to distill into
     if "all" in args.model:
         models_to_distill = ["lstm", "bilstm", "transformer"]
     else:
@@ -481,7 +510,7 @@ def run_distill(
             f"\n{'='*50}\nBẮT ĐẦU DISTILL VÀO STUDENT MODEL: {current_model.upper()}\n{'='*50}"
         )
 
-        # Định cấu hình tham số chuẩn xác cho từng loại Student
+        # Configure student-specific hyperparameters
         if current_model == "transformer":
             student_cfg = tf_config
         else:
@@ -503,7 +532,7 @@ def run_distill(
         student = get_model(current_model, tokenizer.vocab_size, use_crf=args.use_crf)
         student = student.to(device)
 
-        # Sử dụng đúng học bổng học tập của Student được cấu hình riêng biệt
+        # Use student-specific optimizer and hyperparameters as configured
         optimizer = optim.AdamW(
             filter(lambda p: p.requires_grad, student.parameters()), lr=learning_rate
         )
@@ -537,10 +566,10 @@ def run_distill(
 def run_quantize(
     args, bert_config, tf_config, lstm_config, tokenizer, device, LABEL2ID, ID2LABEL
 ):
-    """Nén mô hình động PTQ, hỗ trợ thêm nén kiến trúc Transformer thuần tuần tự."""
+    """Perform dynamic PTQ quantization, with added support for linear-heavy models like Transformer."""
     logger.info("=== MODEL COMPRESSION (QUANTIZATION) ===")
 
-    # Bổ sung transformer vào danh sách các mô hình có thể nén được bằng tuyến tính (Linear-heavy)
+    # Include transformer in the list of models suitable for linear-based quantization
     if "all" in args.model:
         models_to_quantize = ["lstm", "bilstm", "transformer"]
     else:
@@ -592,7 +621,7 @@ def run_quantize(
         model = model.to("cpu")
 
         logger.info("Performing Post-Training Dynamic Quantization (PTQ)...")
-        # Nén các layer Linear & LSTM bên trong mô hình về dạng INT8
+        # Quantize Linear & LSTM layers inside the model to INT8
         if current_model == "transformer":
             logger.warning(
                 "Applying PTQ bypass for Transformer to avoid 'device' attribute bug."
