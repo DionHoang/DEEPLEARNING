@@ -16,7 +16,7 @@ OUTPUT_DIR = BASE_DIR / "results"
 
 
 def get_model_dirs(model_name: str, use_crf: bool = False):
-    """Tạo và trả về cấu trúc thư mục con cho từng model."""
+    """Create and return the subdirectory structure for a given model."""
     crf_suffix = "_crf" if use_crf else ""
     model_dir = OUTPUT_DIR / f"{model_name}{crf_suffix}"
 
@@ -28,7 +28,7 @@ def get_model_dirs(model_name: str, use_crf: bool = False):
         "tensorboard": str(model_dir / "tensorboard"),
     }
 
-    # Đảm bảo tất cả các thư mục đều được tạo
+    # Ensure all output directories exist
     for path in dirs.values():
         Path(path).mkdir(parents=True, exist_ok=True)
 
@@ -94,7 +94,6 @@ class BERTConfig:
 
 
 # --- LSTM & Bi-LSTM Hyperparameters ---
-# config.py
 @dataclass
 class LSTMConfig:
     embedding_dim: int = 300
@@ -111,16 +110,17 @@ class LSTMConfig:
 # --- Parameter-Efficient Fine-Tuning (PEFT/LoRA) Configurations ---
 @dataclass
 class LoRAConfig:
-    r: int = 8
-    alpha: int = 16
+    r: int = 16
+    alpha: int = 32
     dropout: float = 0.1
+    warmup_ratio: float = 0.1
 
 
 # --- Knowledge Distillation (KD) Configurations ---
 @dataclass
 class KDConfig:
-    temperature: float = 3.0
-    alpha: float = 0.5
+    temperature: float = 4.0
+    alpha: float = 0.7
 
 
 # --- Quantization Configurations ---
