@@ -74,4 +74,5 @@ from .engine import (
     run_distill,
     run_infer,
     run_quantize,
+    run_train_qat,
 )
