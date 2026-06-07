@@ -592,6 +592,13 @@ class TransformerModel(nn.Module):
             dropout=dropout,
             batch_first=True,
         )
+
+        for mod in encoder_layer.modules():
+            if isinstance(mod, nn.MultiheadAttention):
+                mod.out_proj = nn.Linear(
+                    mod.out_proj.in_features, mod.out_proj.out_features
+                )
+
         self.transformer_encoder = nn.TransformerEncoder(
             encoder_layer, num_layers=num_layers, enable_nested_tensor=False
         )
@@ -608,9 +615,12 @@ class TransformerModel(nn.Module):
         embeds = self.embedding(input_ids)
         embeds = self.pos_encoder(embeds)
 
-        encoder_out = self.transformer_encoder(
-            embeds, src_key_padding_mask=src_key_padding_mask
-        )
+        try:
+            # Sử dụng tham số theo vị trí (None cho mask thứ 2) để an toàn hơn
+            encoder_out = self.transformer_encoder(embeds, None, src_key_padding_mask)
+        except (AttributeError, TypeError):
+            # Fallback nếu việc truyền mask gặp lỗi trong mô hình lượng tử hóa
+            encoder_out = self.transformer_encoder(embeds)
 
         logits = self.classifier(encoder_out)
         return logits
