@@ -69,25 +69,25 @@ class BaseTrainer:
             state.update(extra)
         torch.save(state, path)
 
-        # Quét danh sách checkpoint, BỎ QUA file chứa chữ "best"
+        # Scan the list of checkpoints, skip files that contain "best"
         all_checkpoints = []
         for f in glob.glob(os.path.join(self.save_dir, f"*_{name}")):
             if "best" not in os.path.basename(f):
                 all_checkpoints.append(f)
 
-        # --- Hàm helper tách lấy số epoch từ tên file để sort ---
+        # --- Helper: extract epoch number from filename for sorting ---
         def extract_epoch_number(filepath):
             filename = os.path.basename(filepath)
             try:
-                # Cắt chuỗi lấy phần ký tự số trước dấu gạch dưới đầu tiên
+                # Slice the string to obtain the numeric epoch portion before the first underscore
                 return int(filename.split("_")[0])
             except (ValueError, IndexError):
                 return 0
 
-        # Sắp xếp an toàn tuyệt đối theo thời gian file được tạo/sửa
+        # Sort checkpoints by extracted epoch number
         all_checkpoints.sort(key=extract_epoch_number)
 
-        # Xóa các file cũ, bọc try-except để an toàn
+        # Remove older checkpoint files; wrap removal in try/except for safety
         if len(all_checkpoints) > 3:
             for old_ckpt in all_checkpoints[:-3]:
                 try:
@@ -179,7 +179,7 @@ class BaseTrainer:
 
                 if hasattr(model, "use_crf") and model.use_crf:
                     batch_preds = model.decode(inputs)
-                    # Lọc bỏ padding (-100) ở labels để so sánh 1-1 với list kết quả Viterbi
+                    # Remove padding (-100) from labels to compare one-to-one with Viterbi results
                     for pred_seq, label_seq in zip(batch_preds, labels.cpu().tolist()):
                         valid_labels = [l for l in label_seq if l != -100]
                         for p, l in zip(pred_seq, valid_labels):
@@ -266,11 +266,16 @@ class BaseTrainer:
 
                 self.optimizer.step()
 
+                if self.scheduler is not None and not isinstance(
+                    self.scheduler, optim.lr_scheduler.ReduceLROnPlateau
+                ):
+                    self.scheduler.step()
+
                 batch_size = batch[1].size(0)
 
                 epoch_loss += loss.item() * batch_size
                 total_samples += batch_size
-                # Tính acc cho tập train
+                # Compute training accuracy
                 if hasattr(self.model, "use_crf") and self.model.use_crf:
                     inputs = batch[0].to(self.device)
 
@@ -318,7 +323,7 @@ class BaseTrainer:
                 f"Epoch {epoch} train_loss={avg_epoch_loss:.4f}, train_acc={train_acc:.4f}"
             )
 
-            # Đánh giá trên Validation set
+            # Evaluate on validation set
             val_metrics = None
             if val_loader is not None:
                 val_metrics = self.evaluate(val_loader)
@@ -334,7 +339,7 @@ class BaseTrainer:
                     f"Epoch {epoch} val_loss={val_loss:.4f}, val_acc={val_acc:.4f}"
                 )
 
-            # LRScheduler Step
+            # Learning rate scheduler step handling
             if self.scheduler is not None:
                 try:
                     if isinstance(self.scheduler, optim.lr_scheduler.ReduceLROnPlateau):
@@ -344,8 +349,6 @@ class BaseTrainer:
                             self.logger.warning(
                                 "ReduceLROnPlateau requires val_loader. Scheduler skipped."
                             )
-                    else:
-                        self.scheduler.step()
                 except Exception as e:
                     self.logger.warning(f"Scheduler.step() failed: {e}")
 
@@ -407,19 +410,29 @@ class DistillationTrainer(BaseTrainer):
         self.temperature = temperature
         self.kldiv = nn.KLDivLoss(reduction="none")
 
-    def _distillation_loss(self, student_logits, teacher_logits, labels):
+    def _distillation_loss(self, student_logits, teacher_logits, labels, input_ids):
         T = self.temperature
         p_s = nn.functional.log_softmax(student_logits / T, dim=-1)
         p_t = nn.functional.softmax(teacher_logits / T, dim=-1)
 
-        mask = (labels != -100).float()  # shape: (batch, seq_len)
+        # Use attention_mask (derived from input_ids) instead of labels != -100
+        pad_token_id = 1
+        attention_mask = (input_ids != pad_token_id).float()
 
-        # Tính trực tiếp KL Loss trên từng token
+        # Compute KL divergence per token
         kd_loss_per_token = self.kldiv(p_s, p_t).sum(dim=-1) * (T * T)
 
-        # Masking và tính trung bình
-        kd_loss = (kd_loss_per_token * mask).sum() / torch.clamp(mask.sum(), min=1e-8)
+        # Apply attention_mask and average over valid tokens
+        kd_loss = (kd_loss_per_token * attention_mask).sum() / torch.clamp(
+            attention_mask.sum(), min=1e-8
+        )
+
         ce_loss = self.criterion(student_logits, labels)
+
+        # Normalize CE loss when the student model uses a CRF layer.
+        if hasattr(self.model, "use_crf") and self.model.use_crf:
+            num_valid_tokens = (labels != -100).sum().float()
+            ce_loss = ce_loss / torch.clamp(num_valid_tokens, min=1e-8)
 
         return self.alpha * kd_loss + (1.0 - self.alpha) * ce_loss
 
@@ -432,7 +445,8 @@ class DistillationTrainer(BaseTrainer):
 
         student_logits = self.model(inputs)
 
-        loss = self._distillation_loss(student_logits, teacher_logits, labels)
+        # Pass inputs into the loss function to compute an attention mask when needed
+        loss = self._distillation_loss(student_logits, teacher_logits, labels, inputs)
 
         return loss, student_logits, labels
 
