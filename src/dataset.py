@@ -102,12 +102,12 @@ class VietnameseNERDataset(Dataset):
         words = sentence["words"]
         tags = sentence["tags"]
 
-        # Bắt đầu với token [CLS]
+        # Start with CLS token
         input_ids = [self.tokenizer.cls_token_id]
         labels = [self.ignore_index]
 
         for word, tag in zip(words, tags):
-            # Tokenize cắt từ nguyên bản thành các sub-words (BPE)
+            # Tokenize the original word into subword tokens (BPE)
             word_tokens = self.tokenizer.tokenize(word)
             if not word_tokens:
                 continue
@@ -115,26 +115,26 @@ class VietnameseNERDataset(Dataset):
             token_ids = self.tokenizer.convert_tokens_to_ids(word_tokens)
             input_ids.extend(token_ids)
 
-            # Gán label gốc cho sub-word đầu tiên. Các sub-word sau gán ignore_index (-100)
+            # Assign the original label to the first subword; subsequent subwords get ignore_index (-100)
             labels.append(self.label2id.get(tag, self.label2id["O"]))
             labels.extend([self.ignore_index] * (len(token_ids) - 1))
 
-        # Kết thúc với token [SEP]
+        # End with SEP token
         input_ids.append(self.tokenizer.sep_token_id)
         labels.append(self.ignore_index)
 
-        # Xử lý Truncation (Cắt bớt nếu vượt quá max_len)
+        # Handle truncation (cut if longer than max_len)
         if len(input_ids) > self.max_len:
             input_ids = input_ids[: self.max_len - 1] + [self.tokenizer.sep_token_id]
             labels = labels[: self.max_len - 1] + [self.ignore_index]
 
-        # Xử lý Padding (Bổ sung nếu ngắn hơn max_len)
+        # Handle padding (pad if shorter than max_len)
         padding_length = self.max_len - len(input_ids)
         if padding_length > 0:
             input_ids.extend([self.tokenizer.pad_token_id] * padding_length)
             labels.extend([self.ignore_index] * padding_length)
 
-        # Convert sang Tensor
+        # Convert to tensors
         input_ids = torch.tensor(input_ids, dtype=torch.long)
         labels = torch.tensor(labels, dtype=torch.long)
 

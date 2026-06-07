@@ -19,13 +19,13 @@ logger = setup_logger("main_orchestrator")
 
 
 def main():
-    # 1. Khởi tạo các class cấu hình
+    # 1. Initialize configuration classes
     tf_config = TransformerConfig()
     bert_config = BERTConfig()
     lstm_config = LSTMConfig()
-    kd_config = KDConfig()  # Thêm config cho Distillation
+    kd_config = KDConfig()  # Add configuration for Distillation
 
-    # 2. Khởi tạo Argument Parser
+    # 2. Initialize Argument Parser
     parser = argparse.ArgumentParser(
         description="Vietnamese Named Entity Recognition orchestrator pipeline."
     )
@@ -66,7 +66,7 @@ def main():
         help="Override default optimizer learning rate.",
     )
 
-    # SỬA LỖI: Thay PATIENCE bằng tf_config.patience
+    # FIX: Replace PATIENCE with tf_config.patience
     parser.add_argument(
         "--patience",
         type=int,
@@ -93,7 +93,7 @@ def main():
         default=False,
         help="Force CPU usage when using CRF (especially on Apple Silicon) to avoid unsupported operations.",
     )
-    # 3. Parse arguments
+    # 3. Parse command-line arguments
     args = parser.parse_args()
 
     if "all" in args.model:
@@ -108,7 +108,7 @@ def main():
         else:
             base_cfg = lstm_config
 
-    # Chỉ tính toán các biến fallback này nếu không phải chế độ 'all'
+    # Only compute these fallback values when not using the 'all' mode
     batch_size = args.batch_size or (base_cfg.batch_size if base_cfg else None)
     epochs = args.epochs or (base_cfg.epochs if base_cfg else None)
     learning_rate = args.lr or (base_cfg.learning_rate if base_cfg else None)
@@ -121,7 +121,7 @@ def main():
         else "mps" if torch.backends.mps.is_available() else "cpu"
     )
 
-    # --- SỬA LỖI 3: Fallback an toàn cho CRF trên MPS ---
+    # --- FIX: Safe fallback for CRF on MPS (Apple Silicon) ---
     if args.use_crf and (device.type == "mps" or args.force_cpu_crf):
         logger.warning(
             "Detected CRF usage on MPS (Apple Silicon) or the --force_cpu_crf flag is enabled. "
@@ -190,6 +190,6 @@ def main():
         logger.error(f"Unknown mode: {args.mode}")
 
 
-# Đảm bảo phần dưới đây là phần cuối cùng của file main.py
+# Ensure the following block is the script entry point
 if __name__ == "__main__":
     main()

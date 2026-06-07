@@ -21,14 +21,14 @@ def quantize_dynamic_ptq(model, dtype=torch.qint8, operators_to_quantize=None):
     if operators_to_quantize is None:
         operators_to_quantize = {nn.Linear, nn.LSTM}
 
-    # Xây qconfig_spec ở mức module: bật qconfig cho Linear/LSTM,
-    # nhưng TẮT cho các Linear nằm bên trong MultiheadAttention.
+    # Build a module-level qconfig_spec: enable qconfig for Linear/LSTM,
+    # but DISABLE for Linear layers inside MultiheadAttention.
     from torch.quantization import default_dynamic_qconfig
 
     qconfig_spec = {}
     for name, module in model.named_modules():
         if isinstance(module, tuple(operators_to_quantize)):
-            # Bỏ qua nếu thuộc về MultiheadAttention (parent chứa MHA)
+            # Skip modules that are part of MultiheadAttention
             parent_name = name.rsplit(".", 1)[0] if "." in name else ""
             parent = dict(model.named_modules()).get(parent_name, None)
             if isinstance(parent, nn.MultiheadAttention):
@@ -38,6 +38,11 @@ def quantize_dynamic_ptq(model, dtype=torch.qint8, operators_to_quantize=None):
     quantized = torch.quantization.quantize_dynamic(
         model, qconfig_spec=qconfig_spec, dtype=dtype
     )
+
+    for m in quantized.modules():
+        if isinstance(m, nn.TransformerEncoderLayer):
+            m.activation_relu_or_gelu = 0
+
     logger.info("Applied dynamic PTQ (skipping MultiheadAttention internals)")
     return quantized
 
@@ -46,7 +51,7 @@ def prepare_qat(model: nn.Module) -> nn.Module:
     try:
         model.qconfig = torch.quantization.get_default_qat_qconfig("fbgemm")
 
-        # Tắt quantize cho các module không tương thích QAT
+        # Disable quantization for modules incompatible with QAT
         for m in model.modules():
             # bỏ qua MultiheadAttention
             if isinstance(m, nn.MultiheadAttention):
@@ -58,7 +63,7 @@ def prepare_qat(model: nn.Module) -> nn.Module:
             if isinstance(m, nn.LayerNorm):
                 m.qconfig = None
 
-        # bỏ crf nếu có
+        # Disable quantization for CRF layers if present
         if hasattr(model, "crf"):
             for m in model.crf.modules():
                 m.qconfig = None
