@@ -17,51 +17,57 @@ from .utils import setup_logger, print_model_size
 logger = setup_logger(__name__)
 
 
-def quantize_dynamic_ptq(
-    model: nn.Module, dtype=torch.qint8, operators_to_quantize=None
-) -> nn.Module:
-    """Apply PyTorch dynamic quantization to model.
-
-    Args:
-            model: nn.Module to quantize
-            dtype: target dtype, usually torch.qint8
-            operators_to_quantize: iterable of types to quantize (defaults to Linear, LSTM)
-    Returns:
-            Quantized model (a new model instance)
-    """
+def quantize_dynamic_ptq(model, dtype=torch.qint8, operators_to_quantize=None):
     if operators_to_quantize is None:
         operators_to_quantize = {nn.Linear, nn.LSTM}
-    quantized = torch.quantization.quantize_dynamic(
-        model, operators_to_quantize, dtype=dtype
-    )
 
-    try:
-        logger.info("Applied dynamic PTQ quantization")
-        total, trainable = print_model_size(model, model_name="quantized_model")
-        logger.info(
-            f"Model params after quantize_dynamic (original counts): total={total:,}, trainable={trainable:,}"
-        )
-    except Exception as e:
-        logger.warning("quantize_dynamic: failed to print model size: %s", e)
+    # Xây qconfig_spec ở mức module: bật qconfig cho Linear/LSTM,
+    # nhưng TẮT cho các Linear nằm bên trong MultiheadAttention.
+    from torch.quantization import default_dynamic_qconfig
+
+    qconfig_spec = {}
+    for name, module in model.named_modules():
+        if isinstance(module, tuple(operators_to_quantize)):
+            # Bỏ qua nếu thuộc về MultiheadAttention (parent chứa MHA)
+            parent_name = name.rsplit(".", 1)[0] if "." in name else ""
+            parent = dict(model.named_modules()).get(parent_name, None)
+            if isinstance(parent, nn.MultiheadAttention):
+                continue
+            qconfig_spec[name] = default_dynamic_qconfig
+
+    quantized = torch.quantization.quantize_dynamic(
+        model, qconfig_spec=qconfig_spec, dtype=dtype
+    )
+    logger.info("Applied dynamic PTQ (skipping MultiheadAttention internals)")
     return quantized
 
 
 def prepare_qat(model: nn.Module) -> nn.Module:
-    """Prepare a model for Quantization Aware Training (QAT) using default configs.
-
-    This will set `qconfig` on the model and run `prepare_qat` in-place. The caller
-    should continue training the model (in train mode) for some epochs, then call
-    `convert_qat` to produce a quantized model.
-    """
     try:
         model.qconfig = torch.quantization.get_default_qat_qconfig("fbgemm")
+
+        # Tắt quantize cho các module không tương thích QAT
+        for m in model.modules():
+            # bỏ qua MultiheadAttention
+            if isinstance(m, nn.MultiheadAttention):
+                m.qconfig = None
+            # bỏ qua embedding
+            if isinstance(m, nn.Embedding):
+                m.qconfig = None
+            # Bỏ qua layernorm
+            if isinstance(m, nn.LayerNorm):
+                m.qconfig = None
+
+        # bỏ crf nếu có
+        if hasattr(model, "crf"):
+            for m in model.crf.modules():
+                m.qconfig = None
+
         torch.quantization.prepare_qat(model, inplace=True)
         logger.info("Model configured for QAT (prepare_qat completed)")
         return model
     except Exception as e:
-        raise RuntimeError(
-            f"QAT preparation failed - ensure your model supports torch.quantization APIs. Cause: {e}"
-        )
+        raise RuntimeError(f"QAT preparation failed: {e}")
 
 
 def convert_qat(model: nn.Module) -> nn.Module:

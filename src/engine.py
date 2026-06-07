@@ -444,8 +444,8 @@ def run_distill(
     logger.info("=== KNOWLEDGE DISTILLATION ===")
 
     # Teacher mặc định luôn cố định cấu hình theo PhoBERT base
-    teacher = PhoBERTModel(num_labels=NUM_LABELS, use_crf=False)
-    teacher_dirs = get_model_dirs("phobert", False)
+    teacher = PhoBERTModel(num_labels=NUM_LABELS, use_crf=args.use_crf)
+    teacher_dirs = get_model_dirs("phobert", args.use_crf)
 
     chk_path = args.checkpoint
     if not chk_path:
@@ -636,11 +636,13 @@ def run_train_qat(
 ):
     logger.info("=== STARTING QUANTIZATION AWARE TRAINING (QAT) ===")
 
-    # Đọc data (tương tự run_train)
     train_sentences = read_conll(TRAIN_FILE)
     val_sentences = read_conll(DEV_FILE)
 
-    models_to_train = ["transformer"] if "all" in args.model else args.model
+    if "all" in args.model:
+        models_to_train = ["lstm", "bilstm", "transformer"]
+    else:
+        models_to_train = args.model
 
     for current_model in models_to_train:
         if current_model in ["phobert", "phobert-lora"]:
@@ -653,10 +655,13 @@ def run_train_qat(
 
         active_cfg = tf_config if current_model == "transformer" else lstm_config
 
+        current_epochs = args.epochs or active_cfg.epochs
+        current_batch_size = args.batch_size or active_cfg.batch_size
+
         train_loader = get_dataloader(
             TRAIN_FILE,
             tokenizer,
-            active_cfg.batch_size,
+            current_batch_size,
             active_cfg.max_seq_length,
             LABEL2ID,
             shuffle=True,
@@ -681,13 +686,12 @@ def run_train_qat(
             f"{current_model}_qat", args.use_crf
         )  # Lưu riêng thư mục qat
 
-        # Khởi tạo QuantizationTrainer thay vì BaseTrainer
         trainer = QuantizationTrainer(
             model=model,
             optimizer=optimizer,
             criterion=criterion,
             device=device,
-            quantize_utils=quantize_utils,  # Truyền utils vào
+            quantize_utils=quantize_utils,
             save_dir=dirs["checkpoints"],
             tensorboard_dir=dirs["tensorboard"],
             log_dir=dirs["logs"],
@@ -698,7 +702,9 @@ def run_train_qat(
         results = trainer.train(
             train_loader=train_loader,
             val_loader=val_loader,
-            epochs=active_cfg.epochs,
+            epochs=current_epochs,
             early_stop=args.patience,
         )
-        logger.info(f"QAT completed. Quantized model ready for deployment.")
+        logger.info(
+            f"QAT completed for {current_model.upper()}. Quantized model ready for deployment."
+        )
