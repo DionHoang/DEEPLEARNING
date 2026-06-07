@@ -1,4 +1,3 @@
-from matplotlib import path
 import os
 import shutil
 from typing import Optional, Dict
@@ -179,16 +178,20 @@ class BaseTrainer:
                 total_samples += batch_size
 
                 if hasattr(model, "use_crf") and model.use_crf:
-                    # CRF decode trả về list các kích thước khác nhau, ta lấy argmax trên emission cho nhanh
-                    # (Để tính eval metrics chi tiết bạn đã có hàm run_evaluate riêng, ở đây ta cần theo dõi xấp xỉ)
-                    preds = torch.argmax(outputs, dim=-1)
+                    batch_preds = model.decode(inputs)
+                    # Lọc bỏ padding (-100) ở labels để so sánh 1-1 với list kết quả Viterbi
+                    for pred_seq, label_seq in zip(batch_preds, labels.cpu().tolist()):
+                        valid_labels = [l for l in label_seq if l != -100]
+                        for p, l in zip(pred_seq, valid_labels):
+                            if p == l:
+                                total_correct += 1
+                            total_valid_tokens += 1
                 else:
                     preds = torch.argmax(outputs, dim=-1)
-
-                mask = labels != -100
-                if preds.shape == labels.shape:
-                    total_correct += ((preds == labels) & mask).sum().item()
-                    total_valid_tokens += mask.sum().item()
+                    mask = labels != -100
+                    if preds.shape == labels.shape:
+                        total_correct += ((preds == labels) & mask).sum().item()
+                        total_valid_tokens += mask.sum().item()
 
         avg_loss = total_loss / max(1, total_samples)
         accuracy = (
@@ -267,13 +270,23 @@ class BaseTrainer:
 
                 epoch_loss += loss.item() * batch_size
                 total_samples += batch_size
-
                 # Tính acc cho tập train
-                preds = torch.argmax(outputs, dim=-1)
-                mask = labels != -100
-                if preds.shape == labels.shape:
-                    train_correct += ((preds == labels) & mask).sum().item()
-                    train_valid_tokens += mask.sum().item()
+                if hasattr(self.model, "use_crf") and self.model.use_crf:
+                    inputs = batch[0].to(self.device)
+
+                    batch_preds = self.model.decode(inputs)
+                    for pred_seq, label_seq in zip(batch_preds, labels.cpu().tolist()):
+                        valid_labels = [l for l in label_seq if l != -100]
+                        for p, l in zip(pred_seq, valid_labels):
+                            if p == l:
+                                train_correct += 1
+                            train_valid_tokens += 1
+                else:
+                    preds = torch.argmax(outputs, dim=-1)
+                    mask = labels != -100
+                    if preds.shape == labels.shape:
+                        train_correct += ((preds == labels) & mask).sum().item()
+                        train_valid_tokens += mask.sum().item()
 
                 if step % log_interval == 0:
 
@@ -399,16 +412,15 @@ class DistillationTrainer(BaseTrainer):
         p_s = nn.functional.log_softmax(student_logits / T, dim=-1)
         p_t = nn.functional.softmax(teacher_logits / T, dim=-1)
 
-        # Tính KL Loss chưa giảm (shape: batch_size, seq_len, num_labels)
-        kd_loss_unmasked = self.kldiv(p_s, p_t) * (T * T)
+        mask = (labels != -100).float()  # shape: (batch, seq_len)
 
-        # Tạo mask loại bỏ padding (shape: batch_size, seq_len, 1)
-        mask = (labels != -100).unsqueeze(-1).float()
+        # Tính trực tiếp KL Loss trên từng token
+        kd_loss_per_token = self.kldiv(p_s, p_t).sum(dim=-1) * (T * T)
 
-        # Tính tổng loss các token hợp lệ và chia trung bình
-        kd_loss = (kd_loss_unmasked * mask).sum() / torch.clamp(mask.sum(), min=1e-8)
-
+        # Masking và tính trung bình
+        kd_loss = (kd_loss_per_token * mask).sum() / torch.clamp(mask.sum(), min=1e-8)
         ce_loss = self.criterion(student_logits, labels)
+
         return self.alpha * kd_loss + (1.0 - self.alpha) * ce_loss
 
     def training_step(self, batch):
@@ -496,14 +508,12 @@ class QuantizationTrainer(BaseTrainer):
         best_path = results.get("best_path")
 
         if best_path is not None and os.path.exists(best_path):
-            self.logger.info(
-                "Loading best checkpoint: %s",
-                best_path,
-            )
-
+            self.logger.info("Loading best checkpoint: %s", best_path)
             self.load_checkpoint(best_path)
-
-        self.logger.info("Converting QAT model to INT8...")
+        else:
+            self.logger.warning(
+                "No best checkpoint found! Converting the final epoch state to INT8. This may degrade performance."
+            )
 
         quantized_model = self.convert_qat()
 
