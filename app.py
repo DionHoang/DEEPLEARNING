@@ -114,11 +114,14 @@ def load_model_by_name(model_display_name):
 
     # Hỗ trợ cấu hình động PTQ nếu là checkpoint lượng tử hóa
     if is_quantized:
-        import src.quantize_utils as quantize_utils
+        model = torch.load(
+            checkpoint_path, map_location=current_device, weights_only=False
+        )
+    else:
+        model = get_model(model_name, tokenizer.vocab_size, use_crf=use_crf)
+        ckpt = torch.load(checkpoint_path, map_location=current_device)
+        model.load_state_dict(ckpt.get("model_state", ckpt))
 
-        model = quantize_utils.quantize_dynamic_ptq(model)
-
-    model.load_state_dict(ckpt.get("model_state", ckpt))
     model.to(current_device)
     model.eval()
 
