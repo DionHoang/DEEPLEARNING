@@ -418,7 +418,7 @@ class BiLSTMModel(nn.Module):
         with torch.no_grad():
             logits = self.forward(input_ids)
             if self.use_crf:
-                mask = input_ids != 1
+                mask = input_ids != self.pad_token_id
                 return self.crf.decode(logits, mask)
             else:
                 return torch.argmax(logits, dim=-1).cpu().tolist()
@@ -477,12 +477,11 @@ class PhoBERTModel(nn.Module):
 
     # Override state_dict to bypass PEFT's aggressive filtering if you want
     # to save the entire model in PyTorch's native format.
-    def state_dict(self, *args, **kwargs):
-        # Force return of all parameters, not just adapters
-        return super().state_dict(*args, **kwargs)
+    # def state_dict(self, *args, **kwargs):
+    #     # Force return of all parameters, not just adapters
+    #     return super().state_dict(*args, **kwargs)
 
 
-# model.py
 class PhoBERTLoRA(nn.Module):
     def __init__(
         self,
@@ -492,7 +491,6 @@ class PhoBERTLoRA(nn.Module):
         use_crf=False,
     ):
         super().__init__()
-        # Kế thừa lõi từ PhoBERTModel
         self.base_model = PhoBERTModel(
             model_name=model_name,
             num_labels=num_labels,
@@ -502,11 +500,11 @@ class PhoBERTLoRA(nn.Module):
 
         cfg = LoRAConfig()
         peft_config = LoraConfig(
-            task_type=None,
+            task_type=TaskType.TOKEN_CLS,
             r=cfg.r,
             lora_alpha=cfg.alpha,
             lora_dropout=cfg.dropout,
-            target_modules=["query", "value"],
+            target_modules=["query", "key", "value", "dense"],
         )
 
         self.base_model.bert = get_peft_model(self.base_model.bert, peft_config)
@@ -534,7 +532,7 @@ class PhoBERTLoRA(nn.Module):
 
 
 class PositionalEncoding(nn.Module):
-    """Lớp mã hóa vị trí cho Transformer thuần từ đầu."""
+    """Positional encoding layer for the from-scratch Transformer."""
 
     def __init__(self, d_model, max_len=256, dropout=0.1):
         super().__init__()
@@ -558,7 +556,7 @@ class PositionalEncoding(nn.Module):
 
 
 class TransformerModel(nn.Module):
-    """Mô hình Transformer thuần (Encoder-only) kết hợp tùy chọn lớp CRF cho bài toán NER."""
+    """Pure Transformer (encoder-only) model with optional CRF for NER tasks."""
 
     def __init__(
         self,
@@ -609,17 +607,17 @@ class TransformerModel(nn.Module):
             self.crf = CRFLayer(num_labels)
 
     def forward(self, input_ids):
-        # Tạo key padding mask từ input_ids (1 là padding token của PhoBERT)
+        # Create key padding mask from input_ids (1 is PhoBERT's pad token)
         src_key_padding_mask = input_ids == self.pad_token_id
 
         embeds = self.embedding(input_ids)
         embeds = self.pos_encoder(embeds)
 
         try:
-            # Sử dụng tham số theo vị trí (None cho mask thứ 2) để an toàn hơn
+            # Pass mask argument positionally (None for the second mask) for safety
             encoder_out = self.transformer_encoder(embeds, None, src_key_padding_mask)
         except (AttributeError, TypeError):
-            # Fallback nếu việc truyền mask gặp lỗi trong mô hình lượng tử hóa
+            # Fallback if passing the mask causes an error (e.g., in quantized models)
             encoder_out = self.transformer_encoder(embeds)
 
         logits = self.classifier(encoder_out)
