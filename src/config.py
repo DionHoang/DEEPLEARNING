@@ -94,6 +94,7 @@ class BERTConfig:
 
 
 # --- LSTM & Bi-LSTM Hyperparameters ---
+# config.py
 @dataclass
 class LSTMConfig:
     embedding_dim: int = 300
@@ -101,6 +102,10 @@ class LSTMConfig:
     dropout: float = 0.5
     learning_rate: float = 1e-3
     epochs: int = 30
+    max_seq_length: int = 256
+    batch_size: int = 32
+    val_batch_size: int = 32
+    patience: int = 5
 
 
 # --- Parameter-Efficient Fine-Tuning (PEFT/LoRA) Configurations ---
