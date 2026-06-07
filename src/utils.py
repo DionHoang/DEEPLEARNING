@@ -13,7 +13,6 @@ import pandas as pd
 import seaborn as sns
 import torch
 
-# --- Đổi tên import để tránh ghi đè lẫn nhau ---
 from sklearn.metrics import (
     classification_report as sk_classification_report,
     accuracy_score as sk_accuracy_score,
@@ -42,7 +41,7 @@ def set_seed(seed=42):
 
 
 def compute_entity_level_metrics(preds, labels, id2label):
-    """Compute span/entity-level precision, recall, and F1 using seqeval. (Yêu cầu list 2 chiều)"""
+    """Compute span/entity-level precision, recall, and F1 using seqeval. (expects a 2D list)"""
     true_predictions = [
         [id2label[p] for (p, l) in zip(pr, lb) if l != -100]
         for pr, lb in zip(preds, labels)
@@ -52,7 +51,7 @@ def compute_entity_level_metrics(preds, labels, id2label):
         for pr, lb in zip(preds, labels)
     ]
 
-    # Cập nhật đủ precision, recall, f1-score vào key 'overall' để main.py gọi không bị lỗi
+    # Provide overall precision, recall, and f1-score under 'overall' key for compatibility
     return {
         "overall": {
             "precision": precision_score(true_labels, true_predictions),
@@ -64,21 +63,21 @@ def compute_entity_level_metrics(preds, labels, id2label):
 
 
 def compute_metrics(preds, labels, label_list):
-    """Compute token-level metrics using sklearn. (Xử lý mảng 1 chiều đã flatten)"""
-    # Lọc bỏ các vị trí padding/subword (-100)
+    """Compute token-level metrics using sklearn. (expects flattened 1D arrays)"""
+    # Filter out padding/subword positions marked with -100
     f_preds = [p for p, l in zip(preds, labels) if l != -100]
     f_labels = [l for p, l in zip(preds, labels) if l != -100]
 
     id2label = {i: l for i, l in enumerate(label_list)}
 
-    # Chuyển ID sang nhãn dạng string
+    # Convert IDs to string labels
     f_preds_str = [id2label.get(p, "O") for p in f_preds]
     f_labels_str = [id2label.get(l, "O") for l in f_labels]
 
-    # Lấy danh sách tên nhãn thực tế xuất hiện để tránh warning của sklearn
+    # Determine the set of labels actually present to avoid sklearn warnings
     present_labels = sorted(list(set(f_labels_str)))
 
-    # Sử dụng hàm của sklearn
+    # Use sklearn utilities to compute classification metrics
     report = sk_classification_report(
         f_labels_str,
         f_preds_str,
@@ -95,9 +94,9 @@ def compute_metrics(preds, labels, label_list):
 
 
 def calculate_label_weights(train_file, label2id):
-    """Compute class weights from a training file using inverse frequency to
+    """Compute class weights from a training file using inverse frequency
 
-    handle class imbalance in PhoNER.
+    to handle class imbalance.
     """
     counts = {l: 0 for l in label2id.keys()}
     with open(train_file, "r", encoding="utf-8") as f:
@@ -195,7 +194,7 @@ def plot_confusion_matrix(
     """Plot a confusion matrix restricted to entity labels (excludes 'O')."""
     id2label = {i: l for i, l in enumerate(label_list)}
 
-    # Tự động chuyển mảng 1D (flat) thành 2D nếu cần thiết
+    # Auto-convert 1D (flat) arrays to 2D if necessary
     if len(preds) > 0 and not isinstance(
         preds[0], (list, tuple, np.ndarray, torch.Tensor)
     ):
@@ -252,7 +251,7 @@ def plot_entity_distribution(
     """Plot the distribution of entity labels (excluding 'O')."""
     id2label = {i: l for i, l in enumerate(label_list)}
 
-    # Tự động chuyển mảng 1D (flat) thành 2D nếu cần thiết
+    # Auto-convert 1D (flat) arrays to 2D if necessary
     if len(labels) > 0 and not isinstance(
         labels[0], (list, tuple, np.ndarray, torch.Tensor)
     ):
@@ -291,7 +290,7 @@ def plot_entity_distribution(
 def save_metrics_csv(metrics_dict, save_path="results/metrics.csv"):
     """Save training metrics dictionary to a CSV file using pandas."""
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    # Loại bỏ khóa 'report' dạng chuỗi dài phức tạp trước khi lưu bảng phẳng csv
+    # Remove the 'report' key (complex nested string) before saving to CSV
     clean_dict = {k: v for k, v in metrics_dict.items() if k != "report"}
     df = pd.DataFrame([clean_dict])
     df.to_csv(save_path, index=False)
