@@ -29,12 +29,17 @@ from seqeval.metrics import (
 
 def set_seed(seed=42):
     """Set random seeds for reproducibility across libraries and CUDA."""
+    os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
+
     torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
 
 # --- NER EVALUATION METRICS ---
