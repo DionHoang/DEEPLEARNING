@@ -1,4 +1,21 @@
+# Virtual Environments
+.venv/
+
+# Python
+__pycache__/
+
+# IDE & Editors
+.vscode/
+.DS_Store
+
+# OS
 desktop.ini
 nul_
-__pycache__/
-.venv
+Thumbs.db
+.env.local
+.env.*.local
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+.jupyter/
