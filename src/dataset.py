@@ -2,6 +2,7 @@ import os
 import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
+import unicodedata
 
 
 def read_conll(file_path):
@@ -42,8 +43,11 @@ def read_conll(file_path):
 
             parts = line.split()
             if len(parts) >= 2:
-                words.append(parts[0])
-                tags.append(parts[-1])
+                word = unicodedata.normalize("NFC", parts[0])
+                tag = unicodedata.normalize("NFC", parts[-1])
+
+                words.append(word)
+                tags.append(tag)
 
     if words:
         sentences.append({"words": words, "tags": tags})
