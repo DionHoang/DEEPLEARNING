@@ -539,7 +539,7 @@ def run_distill(
         scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=1)
         criterion = NERLoss(student)
 
-        student_dirs = get_model_dirs(current_model, args.use_crf)
+        student_dirs = get_model_dirs(f"{current_model}_distilled", args.use_crf)
 
         trainer = DistillationTrainer(
             student_model=student,
