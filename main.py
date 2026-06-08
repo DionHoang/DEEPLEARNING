@@ -4,13 +4,9 @@ import logging
 import torch
 from transformers import AutoTokenizer
 from pyvi import ViTokenizer
-
 from src import *
-
 from torch.utils.data import DataLoader
-
 import src.quantize_utils as quantize_utils
-
 import transformers
 
 transformers.utils.logging.set_verbosity_error()
@@ -19,6 +15,9 @@ logger = setup_logger("main_orchestrator")
 
 
 def main():
+    # 0. Set seed for reproducibility
+    set_seed(seed=42)
+
     # 1. Initialize configuration classes
     tf_config = TransformerConfig()
     bert_config = BERTConfig()
