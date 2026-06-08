@@ -8,6 +8,8 @@ from src import *
 from torch.utils.data import DataLoader
 import src.quantize_utils as quantize_utils
 import transformers
+from dotenv import load_dotenv
+from huggingface_hub import login
 
 transformers.utils.logging.set_verbosity_error()
 # Set up main logger
@@ -15,8 +17,16 @@ logger = setup_logger("main_orchestrator")
 
 
 def main():
-    # 0. Set seed for reproducibility
+    # 0. Set seed for reproducibility and load environment variables
     set_seed(seed=42)
+    load_dotenv()
+
+    hf_token = os.getenv("HF_TOKEN")
+
+    if hf_token:
+        login(hf_token)
+    else:
+        logger.warning("HF_TOKEN not found in environment variables.")
 
     # 1. Initialize configuration classes
     tf_config = TransformerConfig()
