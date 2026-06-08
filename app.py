@@ -5,17 +5,17 @@ import gradio as gr
 from transformers import AutoTokenizer
 from pyvi import ViTokenizer
 
-# Gọi trực tiếp các hàm khởi tạo và cấu hình dùng chung từ pipeline hệ thống
+# Import shared initialization and configuration helpers from the core pipeline
 from src import LABEL_LIST, LABEL2ID, ID2LABEL, NUM_LABELS, get_model_dirs, get_model
 
-# Khởi tạo Tokenizer mặc định đồng bộ với main.py
+# Initialize default tokenizer (keeps consistency with main.py)
 TOKENIZER_NAME = "vinai/phobert-base"
 tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME, keep_accents=True)
 
-# Bộ nhớ đệm (Cache) lưu mô hình kèm thiết bị tính toán tương ứng
+# Cache storing model instances together with their compute device
 MODELS_CACHE = {}
 
-# Sơ đồ ánh xạ trực quan từ UI sang các cấu hình chuẩn của hệ thống lõi
+# Mapping from UI labels to internal model configuration parameters
 MODEL_CONFIGS = {
     "PhoBERT Gốc (Standard)": {
         "model_name": "phobert",
@@ -67,8 +67,8 @@ MODEL_CONFIGS = {
 
 def load_model_by_name(model_display_name):
     """
-    Tự động hóa hoàn toàn việc dựng kiến trúc, tìm đường dẫn checkpoint chuẩn,
-    áp dụng các bản vá thiết bị (MPS fallback) và tải trọng số tương thích.
+    Automate model construction, locate the correct checkpoint path,
+    apply device fallbacks (e.g. MPS -> CPU) and load compatible weights.
     """
     if model_display_name in MODELS_CACHE:
         return MODELS_CACHE[model_display_name]
@@ -78,7 +78,7 @@ def load_model_by_name(model_display_name):
     use_crf = cfg["use_crf"]
     filename = cfg["filename"]
 
-    # Sử dụng hàm chuẩn của config.py để lấy chính xác thư mục checkpoints của dự án
+    # Use the config utility to find the project's checkpoint directory
     dirs = get_model_dirs(model_name, use_crf)
     checkpoint_path = os.path.join(dirs["checkpoints"], filename)
 
@@ -87,7 +87,7 @@ def load_model_by_name(model_display_name):
             f"Không tìm thấy file checkpoint tại: {checkpoint_path}"
         )
 
-    # Cấu hình thiết bị tính toán an toàn tuân thủ bản vá lỗi số 3
+    # Determine compute device with safe fallbacks
     is_quantized = "quantized" in filename
     if is_quantized:
         current_device = torch.device("cpu")
@@ -97,7 +97,7 @@ def load_model_by_name(model_display_name):
             if torch.cuda.is_available()
             else "mps" if torch.backends.mps.is_available() else "cpu"
         )
-        # Fallback an toàn cho CRF trên nền tảng Apple Silicon
+        # Safe fallback for CRF on Apple Silicon (MPS)
         if use_crf and current_device.type == "mps":
             print(
                 "[*] WARNING: Detected CRF on MPS. Forcing fallback to CPU for stability."
@@ -112,7 +112,7 @@ def load_model_by_name(model_display_name):
     print(f"[*] Đang nạp trọng số từ: {checkpoint_path}")
     ckpt = torch.load(checkpoint_path, map_location=current_device)
 
-    # Hỗ trợ cấu hình động PTQ nếu là checkpoint lượng tử hóa
+    # Support dynamic PTQ checkpoint handling when file indicates quantization
     if is_quantized:
         model = torch.load(
             checkpoint_path, map_location=current_device, weights_only=False
@@ -125,17 +125,17 @@ def load_model_by_name(model_display_name):
     model.to(current_device)
     model.eval()
 
-    # Cache lại cả instance mô hình lẫn thiết bị xử lý của nó
+    # Cache the model instance along with its compute device
     MODELS_CACHE[model_display_name] = (model, current_device)
     return model, current_device
 
 
 def inference_ner(model, current_device, tokenizer, text):
     """
-    Tận dụng hàm `.decode()` đồng bộ có sẵn ở mọi Class mô hình trong model.py
-    để xử lý đầu ra mượt mà cho cả CRF và Non-CRF.
+    Use the model's built-in `.decode()` to obtain predictions consistently
+    for both CRF and non-CRF models.
     """
-    # Khử lỗi lệch sub-word bằng cách băm từ chuẩn dịch tễ PyVi trước
+    # Reduce sub-word splitting issues by tokenizing using PyVi first
     segmented_text = ViTokenizer.tokenize(text)
 
     inputs = tokenizer(
@@ -148,10 +148,10 @@ def inference_ner(model, current_device, tokenizer, text):
     input_ids = inputs["input_ids"].to(current_device)
 
     with torch.no_grad():
-        # Gọi phương thức giải mã chuẩn hóa tích hợp sẵn trong model.py của bạn
+        # Call the model's integrated decode method
         preds = model.decode(input_ids)
 
-        # Đưa tensor hoặc list batch về dạng danh sách nhãn đơn phẳng của câu đầu vào
+        # Convert batch tensor/list to a flat list of labels for the input sentence
         if isinstance(preds, list) and len(preds) > 0 and isinstance(preds[0], list):
             preds = preds[0]
 
@@ -164,8 +164,8 @@ def inference_ner(model, current_device, tokenizer, text):
 
 def format_to_gradio_highlight(tokens, preds):
     """
-    Lọc bỏ các token điều hướng đặc biệt, gom cụm BPE và hoàn trả văn bản sạch
-    đã được gỡ bỏ ký tự gạch dưới '_' của PyVi để đưa lên Gradio UI.
+    Remove special navigation tokens, merge BPE pieces, and return cleaned
+    words (with PyVi underscores removed) for display in the Gradio UI.
     """
     highlighted_output = []
     current_word = ""
@@ -191,7 +191,7 @@ def format_to_gradio_highlight(tokens, preds):
             if display_label.startswith("B-") or display_label.startswith("I-"):
                 display_label = display_label[2:]
 
-            # Gỡ bỏ dấu gạch nối từ ghép của PyVi giúp hiển thị tự nhiên
+            # Remove PyVi's underscore word joins for natural display
             clean_word = current_word.replace("_", " ") + " "
             highlighted_output.append(
                 (clean_word, display_label if display_label != "O" else None)
@@ -246,7 +246,7 @@ def compare_models_predict(text, model_name_1, model_name_2):
     return out1, f"{latency1:.2f} ms", out2, f"{latency2:.2f} ms"
 
 
-# ==================== ĐỊNH NGHĨA GRADIO UI BLOCKS ====================
+# ==================== GRADIO UI BLOCKS DEFINITION ====================
 
 EXAMPLES = [
     [
@@ -263,12 +263,10 @@ EXAMPLES = [
 MODEL_CHOICES = list(MODEL_CONFIGS.keys())
 
 with gr.Blocks(title="Vietnamese Medical NER System", theme=gr.themes.Soft()) as demo:
-    gr.Markdown(
-        """
+    gr.Markdown("""
         # 🩺 Hệ Thống Phân Tích Thực Thể Y Tế & Dịch Tễ Đa Kiến Trúc (PhoNER COVID-19)
         Ứng dụng hỗ trợ trích xuất thông tin tự động, cho phép đối sánh hiệu năng song song giữa các biến thể Baseline, LoRA, Custom Transformer, và các phiên bản nén (Distilled/Quantized).
-        """
-    )
+        """)
 
     with gr.Tabs():
         with gr.TabItem("🔎 Thử Nghiệm Mô Hình Đơn"):
