@@ -107,9 +107,9 @@ class CRFLayer(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        nn.init.uniform_(self.transitions, -0.1, 0.1)
-        nn.init.uniform_(self.start_transitions, -0.1, 0.1)
-        nn.init.uniform_(self.end_transitions, -0.1, 0.1)
+        nn.init.uniform_(self.transitions, -0.01, 0.01)
+        nn.init.uniform_(self.start_transitions, -0.01, 0.01)
+        nn.init.uniform_(self.end_transitions, -0.01, 0.01)
 
     def forward(self, emissions, tags, mask=None):
         """
@@ -225,12 +225,9 @@ class CRFLayer(nn.Module):
             next_score = score + transition_score + emission_score
             score = torch.where(mask[i], next_score, score)
 
-        # Add end transition score for the last active token in each sequence
-        # We need to find the index of the last active token for each sequence
-        # mask is (seq_len, batch_size)
-        last_indices = mask.long().sum(dim=0) - 1  # (batch_size,)
+        # Clamp last_indices to a minimum of 1 to avoid indexing -1 when the entire sequence is masked.
+        last_indices = mask.long().sum(dim=0).clamp(min=1) - 1  # (batch_size,)
         last_tags = tags[last_indices, torch.arange(batch_size)]  # (batch_size,)
-
         score = score + self.end_transitions[last_tags]
         return score
 
@@ -344,13 +341,23 @@ class LSTMModel(nn.Module):
         return logits
 
     def crf_loss(self, logits, labels, input_ids=None):
-        # Create mask: ignore padding / ignore indices (-100)
         mask = labels != -100
-        # For CRF, we replace -100 in labels with 0 so index is valid during score calculation,
-        # but the mask ensures these positions do not contribute to score/partition.
+
+        #  Force the first token ([CLS]) to always be valid to match start_transitions
+        mask[:, 0] = True
+
         clean_labels = labels.clone()
         clean_labels[clean_labels == -100] = LABEL2ID.get("O", 0)
-        return self.crf(logits, clean_labels, mask)
+
+        # Disable autocast to avoid FP16 overflow in CRF logsumexp computations
+        device_type = "cuda" if logits.is_cuda else "cpu"
+
+        # MPS (Apple Silicon) does not use the same autocast syntax as CUDA
+        if device_type == "cpu":
+            return self.crf(logits.float(), clean_labels, mask)
+
+        with torch.autocast(device_type=device_type, enabled=False):
+            return self.crf(logits.float(), clean_labels, mask)
 
     def decode(self, input_ids):
         # Perform inference without altering training/eval mode
@@ -409,9 +416,22 @@ class BiLSTMModel(nn.Module):
 
     def crf_loss(self, logits, labels, input_ids=None):
         mask = labels != -100
+
+        #  Force the first token ([CLS]) to always be valid to match start_transitions
+        mask[:, 0] = True
+
         clean_labels = labels.clone()
         clean_labels[clean_labels == -100] = LABEL2ID.get("O", 0)
-        return self.crf(logits, clean_labels, mask)
+
+        # Disable autocast to avoid FP16 overflow in CRF logsumexp computations
+        device_type = "cuda" if logits.is_cuda else "cpu"
+
+        # MPS (Apple Silicon) does not use the same autocast syntax as CUDA
+        if device_type == "cpu":
+            return self.crf(logits.float(), clean_labels, mask)
+
+        with torch.autocast(device_type=device_type, enabled=False):
+            return self.crf(logits.float(), clean_labels, mask)
 
     def decode(self, input_ids):
         # Perform inference without altering training/eval mode
@@ -461,9 +481,22 @@ class PhoBERTModel(nn.Module):
 
     def crf_loss(self, logits, labels, input_ids=None):
         mask = labels != -100
+
+        #  Force the first token ([CLS]) to always be valid to match start_transitions
+        mask[:, 0] = True
+
         clean_labels = labels.clone()
         clean_labels[clean_labels == -100] = LABEL2ID.get("O", 0)
-        return self.crf(logits, clean_labels, mask)
+
+        # Disable autocast to avoid FP16 overflow in CRF logsumexp computations
+        device_type = "cuda" if logits.is_cuda else "cpu"
+
+        # MPS (Apple Silicon) does not use the same autocast syntax as CUDA
+        if device_type == "cpu":
+            return self.crf(logits.float(), clean_labels, mask)
+
+        with torch.autocast(device_type=device_type, enabled=False):
+            return self.crf(logits.float(), clean_labels, mask)
 
     def decode(self, input_ids):
         # Perform inference without altering training/eval mode
@@ -474,12 +507,6 @@ class PhoBERTModel(nn.Module):
                 return self.crf.decode(logits, mask)
             else:
                 return torch.argmax(logits, dim=-1).cpu().tolist()
-
-    # Override state_dict to bypass PEFT's aggressive filtering if you want
-    # to save the entire model in PyTorch's native format.
-    # def state_dict(self, *args, **kwargs):
-    #     # Force return of all parameters, not just adapters
-    #     return super().state_dict(*args, **kwargs)
 
 
 class PhoBERTLoRA(nn.Module):
@@ -625,9 +652,22 @@ class TransformerModel(nn.Module):
 
     def crf_loss(self, logits, labels, input_ids=None):
         mask = labels != -100
+
+        #  Force the first token ([CLS]) to always be valid to match start_transitions
+        mask[:, 0] = True
+
         clean_labels = labels.clone()
         clean_labels[clean_labels == -100] = LABEL2ID.get("O", 0)
-        return self.crf(logits, clean_labels, mask)
+
+        # Disable autocast to avoid FP16 overflow in CRF logsumexp computations
+        device_type = "cuda" if logits.is_cuda else "cpu"
+
+        # MPS (Apple Silicon) does not use the same autocast syntax as CUDA
+        if device_type == "cpu":
+            return self.crf(logits.float(), clean_labels, mask)
+
+        with torch.autocast(device_type=device_type, enabled=False):
+            return self.crf(logits.float(), clean_labels, mask)
 
     def decode(self, input_ids):
         # Perform inference without altering training/eval mode
