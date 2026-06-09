@@ -429,11 +429,6 @@ class DistillationTrainer(BaseTrainer):
 
         ce_loss = self.criterion(student_logits, labels)
 
-        # Normalize CE loss when the student model uses a CRF layer.
-        if hasattr(self.model, "use_crf") and self.model.use_crf:
-            num_valid_tokens = (labels != -100).sum().float()
-            ce_loss = ce_loss / torch.clamp(num_valid_tokens, min=1e-8)
-
         return self.alpha * kd_loss + (1.0 - self.alpha) * ce_loss
 
     def training_step(self, batch):
