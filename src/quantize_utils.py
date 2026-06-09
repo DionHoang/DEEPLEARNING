@@ -49,6 +49,7 @@ def quantize_dynamic_ptq(model, dtype=torch.qint8, operators_to_quantize=None):
 
 def prepare_qat(model: nn.Module) -> nn.Module:
     try:
+        model.train()
         model.qconfig = torch.quantization.get_default_qat_qconfig("fbgemm")
 
         # Disable quantization for modules incompatible with QAT
@@ -83,6 +84,11 @@ def convert_qat(model: nn.Module) -> nn.Module:
     try:
         model.eval()
         quantized = torch.quantization.convert(model.eval(), inplace=False)
+
+        for m in quantized.modules():
+            if isinstance(m, nn.TransformerEncoderLayer):
+                m.activation_relu_or_gelu = 0
+
         logger.info("Converted QAT model to quantized model")
         return quantized
     except Exception as e:

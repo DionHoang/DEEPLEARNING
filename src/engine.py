@@ -18,6 +18,31 @@ transformers.utils.logging.set_verbosity_error()  # Suppress non-essential trans
 logger = setup_logger("engine")
 
 
+def _load_checkpoint_file(path, map_location, *, allow_full_pickle=False):
+    load_kwargs = {"map_location": map_location}
+    if allow_full_pickle:
+        load_kwargs["weights_only"] = False
+    return torch.load(path, **load_kwargs)
+
+
+def _load_model_for_eval(model, chk_path, device, logger):
+    is_quantized = "quantized" in os.path.basename(chk_path).lower()
+
+    if is_quantized:
+        logger.info("Quantized checkpoint detected. Loading full model on CPU.")
+        qmodel = _load_checkpoint_file(
+            chk_path,
+            map_location=torch.device("cpu"),
+            allow_full_pickle=True,
+        )
+        return qmodel, torch.device("cpu")
+
+    ckpt = _load_checkpoint_file(chk_path, map_location=device, allow_full_pickle=False)
+    model_state = ckpt.get("model_state", ckpt)
+    model.load_state_dict(model_state)
+    return model.to(device), device
+
+
 def run_evaluation(
     model, dataloader, tokenizer, id2label, dataset_sentences, save_pred_path=None
 ):
@@ -293,9 +318,11 @@ def run_evaluate(
             continue
 
         logger.info(f"Loading weights from checkpoint: {chk_path}")
-        ckpt = torch.load(chk_path, map_location=device)
-        model.load_state_dict(ckpt.get("model_state", ckpt))
-        model = model.to(device)
+        try:
+            model, eval_device = _load_model_for_eval(model, chk_path, device, logger)
+        except Exception as e:
+            logger.error(f"Failed to load checkpoint '{chk_path}': {e}")
+            continue
 
         pred_save_path = os.path.join(dirs["base"], "predictions.txt")
         token_report, entity_report, flat_preds, flat_labels, _, _ = run_evaluation(
@@ -381,7 +408,7 @@ def run_infer(args, bert_config, tf_config, lstm_config, tokenizer, device, ID2L
             )
             continue
 
-        is_quantized = "quantized" in chk_path
+        is_quantized = "quantized" in os.path.basename(chk_path).lower()
 
         if is_quantized:
             logger.info(
@@ -390,11 +417,19 @@ def run_infer(args, bert_config, tf_config, lstm_config, tokenizer, device, ID2L
             infer_device = torch.device("cpu")
             logger.info(f"Loading full quantized object from {chk_path}")
             # Load the full quantized object directly
-            model = torch.load(chk_path, map_location=infer_device, weights_only=False)
+            model = _load_checkpoint_file(
+                chk_path,
+                map_location=infer_device,
+                allow_full_pickle=True,
+            )
         else:
             infer_device = device
             logger.info(f"Loading weights from {chk_path}")
-            ckpt = torch.load(chk_path, map_location=infer_device, weights_only=False)
+            ckpt = _load_checkpoint_file(
+                chk_path,
+                map_location=infer_device,
+                allow_full_pickle=False,
+            )
             model.load_state_dict(ckpt.get("model_state", ckpt))
 
         model = model.to(infer_device)
@@ -495,7 +530,7 @@ def run_distill(
         return
 
     logger.info(f"Loading Teacher model weights from: {chk_path}")
-    ckpt = torch.load(chk_path, map_location=device)
+    ckpt = _load_checkpoint_file(chk_path, map_location=device, allow_full_pickle=False)
     teacher.load_state_dict(ckpt.get("model_state", ckpt))
     teacher = teacher.to(device)
 
@@ -616,7 +651,11 @@ def run_quantize(
             continue
 
         logger.info(f"Loading weights from baseline: {chk_path}")
-        ckpt = torch.load(chk_path, map_location="cpu")
+        ckpt = _load_checkpoint_file(
+            chk_path,
+            map_location="cpu",
+            allow_full_pickle=False,
+        )
         model.load_state_dict(ckpt.get("model_state", ckpt))
         model = model.to("cpu")
 
@@ -734,6 +773,14 @@ def run_train_qat(
             epochs=current_epochs,
             early_stop=args.patience,
         )
+        quantized_model = results.get("quantized_model")
+        if quantized_model is not None:
+            q_save_path = os.path.join(
+                dirs["checkpoints"], f"{current_model}_quantized_qat.pt"
+            )
+            torch.save(quantized_model, q_save_path)
+            logger.info(f"Saved converted QAT quantized model to: {q_save_path}")
+
         logger.info(
-            f"QAT completed for {current_model.upper()}. Quantized model ready for deployment."
+            f"QAT completed for {current_model.upper()}. Float best checkpoint and quantized artifact are ready for deployment."
         )

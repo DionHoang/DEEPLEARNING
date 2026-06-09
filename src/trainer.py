@@ -14,6 +14,10 @@ import glob
 from .utils import setup_logger, print_model_size
 
 
+def _safe_torch_load(path, map_location):
+    return torch.load(path, map_location=map_location, weights_only=False)
+
+
 class BaseTrainer:
 
     def __init__(
@@ -110,7 +114,7 @@ class BaseTrainer:
         path: str,
         map_location: Optional[torch.device] = None,
     ):
-        ckpt = torch.load(
+        ckpt = _safe_torch_load(
             path,
             map_location=map_location or self.device,
         )
