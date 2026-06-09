@@ -39,7 +39,33 @@ def _load_model_for_eval(model, chk_path, device, logger):
 
     ckpt = _load_checkpoint_file(chk_path, map_location=device, allow_full_pickle=False)
     model_state = ckpt.get("model_state", ckpt)
-    model.load_state_dict(model_state)
+
+    # Detect QAT-prepared float checkpoint: keys contain fake_quant / layer_fw,
+    # or path is under a *_qat_* directory. In that case the saved model has
+    # QAT observers/FakeQuant attached, so we must prepare the fresh model
+    # the same way BEFORE load_state_dict, otherwise keys won't match.
+    keys = list(model_state.keys())
+    is_qat_ckpt = "_qat" in chk_path.lower() or any(
+        ("fake_quant" in k) or ("layer_fw" in k) or ("layer_bw" in k) for k in keys
+    )
+    if is_qat_ckpt:
+        logger.info(
+            "QAT float checkpoint detected → preparing model for QAT before loading."
+        )
+        # prepare_qat requires CPU/train-mode setup; do it before moving to device
+        model = quantize_utils.prepare_qat(model)
+
+    missing, unexpected = model.load_state_dict(model_state, strict=False)
+    if missing:
+        logger.warning(
+            f"Missing keys when loading checkpoint: {len(missing)} (first 5: {missing[:5]})"
+        )
+    if unexpected:
+        logger.warning(
+            f"Unexpected keys when loading checkpoint: {len(unexpected)} (first 5: {unexpected[:5]})"
+        )
+
+    model.eval()
     return model.to(device), device
 
 
