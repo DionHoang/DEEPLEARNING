@@ -1,0 +1,35 @@
+2026-06-10 04:15:37 - engine - INFO - === MODEL COMPRESSION (QUANTIZATION) ===
+2026-06-10 04:15:37 - engine - INFO - 
+==================================================
+BẮT ĐẦU QUANTIZE MODEL: LSTM
+==================================================
+2026-06-10 04:15:37 - engine - INFO - Loading weights from baseline: /content/DEEPLEARNING/results/lstm/checkpoints/best_model.pt
+2026-06-10 04:15:38 - engine - INFO - Performing Post-Training Dynamic Quantization (PTQ)...
+2026-06-10 04:15:39 - engine - INFO - Quantized dynamic PTQ model saved at: /content/DEEPLEARNING/results/lstm/checkpoints/lstm_quantized_ptq.pt
+2026-06-10 04:15:39 - engine - INFO - Evaluating quantized lstm on Validation set (CPU)...
+2026-06-10 04:15:39 - engine - INFO - Running evaluation cycle...
+2026-06-10 04:15:51 - engine - INFO - Quantized Model (lstm) Accuracy: 0.9579
+2026-06-10 04:15:51 - engine - INFO - Quantized Model (lstm) Entity F1-Score: 0.8529
+2026-06-10 04:15:51 - engine - INFO - 
+==================================================
+BẮT ĐẦU QUANTIZE MODEL: BILSTM
+==================================================
+2026-06-10 04:15:52 - engine - INFO - Loading weights from baseline: /content/DEEPLEARNING/results/bilstm/checkpoints/best_model.pt
+2026-06-10 04:15:52 - engine - INFO - Performing Post-Training Dynamic Quantization (PTQ)...
+2026-06-10 04:15:53 - engine - INFO - Quantized dynamic PTQ model saved at: /content/DEEPLEARNING/results/bilstm/checkpoints/bilstm_quantized_ptq.pt
+2026-06-10 04:15:53 - engine - INFO - Evaluating quantized bilstm on Validation set (CPU)...
+2026-06-10 04:15:53 - engine - INFO - Running evaluation cycle...
+2026-06-10 04:16:15 - engine - INFO - Quantized Model (bilstm) Accuracy: 0.9681
+2026-06-10 04:16:15 - engine - INFO - Quantized Model (bilstm) Entity F1-Score: 0.8879
+2026-06-10 04:16:15 - engine - INFO - 
+==================================================
+BẮT ĐẦU QUANTIZE MODEL: TRANSFORMER
+==================================================
+2026-06-10 04:16:15 - engine - INFO - Loading weights from baseline: /content/DEEPLEARNING/results/transformer/checkpoints/best_model.pt
+2026-06-10 04:16:16 - engine - INFO - Performing Post-Training Dynamic Quantization (PTQ)...
+2026-06-10 04:16:16 - engine - WARNING - Applying PTQ bypass for Transformer to avoid 'device' attribute bug.
+2026-06-10 04:16:16 - engine - INFO - Quantized dynamic PTQ model saved at: /content/DEEPLEARNING/results/transformer/checkpoints/transformer_quantized_ptq.pt
+2026-06-10 04:16:16 - engine - INFO - Evaluating quantized transformer on Validation set (CPU)...
+2026-06-10 04:16:16 - engine - INFO - Running evaluation cycle...
+2026-06-10 04:17:10 - engine - INFO - Quantized Model (transformer) Accuracy: 0.9490
+2026-06-10 04:17:10 - engine - INFO - Quantized Model (transformer) Entity F1-Score: 0.8023

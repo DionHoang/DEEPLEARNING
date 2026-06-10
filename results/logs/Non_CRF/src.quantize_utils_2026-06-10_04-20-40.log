@@ -1,0 +1,6 @@
+2026-06-10 04:20:42 - src.quantize_utils - INFO - Model configured for QAT (prepare_qat completed)
+2026-06-10 04:49:19 - src.quantize_utils - INFO - Converted QAT model to quantized model
+2026-06-10 04:49:19 - src.quantize_utils - INFO - Model configured for QAT (prepare_qat completed)
+2026-06-10 05:47:43 - src.quantize_utils - INFO - Converted QAT model to quantized model
+2026-06-10 05:47:43 - src.quantize_utils - INFO - Model configured for QAT (prepare_qat completed)
+2026-06-10 05:51:45 - src.quantize_utils - INFO - Converted QAT model to quantized model

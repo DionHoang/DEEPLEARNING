@@ -1,0 +1,5 @@
+2026-06-10 03:21:34 - model - INFO - Instantiating LSTM model (CRF=False)
+2026-06-10 03:21:42 - model - INFO - Instantiating Bidirectional LSTM model (CRF=False)
+2026-06-10 03:21:51 - model - INFO - Instantiating Scratch Transformer model (CRF=False)
+2026-06-10 03:22:01 - model - INFO - Instantiating PhoBERT model (CRF=False)
+2026-06-10 03:22:57 - model - INFO - Instantiating PhoBERT + LoRA model (CRF=False)

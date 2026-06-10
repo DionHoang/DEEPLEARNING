@@ -1,0 +1,34 @@
+2026-06-10 04:51:54 - engine - INFO - Loading evaluation (test) dataset...
+2026-06-10 04:51:54 - engine - INFO - 
+==================================================
+BẮT ĐẦU ĐÁNH GIÁ MODEL: TRANSFORMER
+==================================================
+2026-06-10 04:51:54 - engine - INFO - Loading weights from checkpoint: results/transformer_crf/checkpoints/transformer_quantized_ptq.pt
+2026-06-10 04:51:54 - engine - INFO - Quantized checkpoint detected. Loading full model on CPU.
+2026-06-10 04:51:54 - engine - INFO - Running evaluation cycle...
+2026-06-10 04:52:14 - engine - INFO - 
+Token-Level Evaluation Report (TRANSFORMER):
+2026-06-10 04:52:14 - engine - INFO - Overall Accuracy: 0.9471
+2026-06-10 04:52:14 - engine - INFO - Macro F1-Score: 0.7373
+2026-06-10 04:52:14 - engine - INFO - 
+Entity-Level BIO Evaluation Report (TRANSFORMER):
+2026-06-10 04:52:14 - engine - INFO - Overall F1-Score: 0.8219
+2026-06-10 04:52:14 - engine - INFO - 
+Detailed Entity Report (TRANSFORMER):
+                     precision    recall  f1-score   support
+
+                AGE       0.89      0.93      0.91       582
+               DATE       0.89      0.94      0.91      1654
+             GENDER       0.93      0.96      0.95       462
+                JOB       0.50      0.51      0.50       173
+           LOCATION       0.74      0.85      0.79      4441
+               NAME       0.79      0.81      0.80       318
+       ORGANIZATION       0.70      0.71      0.71       771
+         PATIENT_ID       0.92      0.90      0.91      2005
+SYMPTOM_AND_DISEASE       0.70      0.70      0.70      1136
+     TRANSPORTATION       0.79      0.81      0.80       193
+
+          micro avg       0.80      0.85      0.82     11735
+          macro avg       0.79      0.81      0.80     11735
+       weighted avg       0.80      0.85      0.82     11735
+

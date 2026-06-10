@@ -1,0 +1,39 @@
+2026-06-10 03:58:09 - student_distilled_transformer_crf_False - INFO - Model params: total=18,497,556, trainable=18,497,556
+2026-06-10 03:59:32 - student_distilled_transformer_crf_False - INFO - Epoch 1 train_loss=1.2626, train_acc=0.8136
+2026-06-10 03:59:34 - student_distilled_transformer_crf_False - INFO - Epoch 1 val_loss=0.6729, val_acc=0.8418
+2026-06-10 03:59:38 - student_distilled_transformer_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_distilled/checkpoints/001_model.pt
+2026-06-10 03:59:39 - student_distilled_transformer_crf_False - INFO - New best model saved at epoch 1 with val_loss 0.6729
+2026-06-10 04:01:02 - student_distilled_transformer_crf_False - INFO - Epoch 2 train_loss=0.5506, train_acc=0.9000
+2026-06-10 04:01:04 - student_distilled_transformer_crf_False - INFO - Epoch 2 val_loss=0.4632, val_acc=0.8903
+2026-06-10 04:01:10 - student_distilled_transformer_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_distilled/checkpoints/002_model.pt
+2026-06-10 04:01:26 - student_distilled_transformer_crf_False - INFO - New best model saved at epoch 2 with val_loss 0.4632
+2026-06-10 04:02:50 - student_distilled_transformer_crf_False - INFO - Epoch 3 train_loss=0.3718, train_acc=0.9305
+2026-06-10 04:02:52 - student_distilled_transformer_crf_False - INFO - Epoch 3 val_loss=0.4082, val_acc=0.9106
+2026-06-10 04:02:57 - student_distilled_transformer_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_distilled/checkpoints/003_model.pt
+2026-06-10 04:03:03 - student_distilled_transformer_crf_False - INFO - New best model saved at epoch 3 with val_loss 0.4082
+2026-06-10 04:04:27 - student_distilled_transformer_crf_False - INFO - Epoch 4 train_loss=0.2736, train_acc=0.9486
+2026-06-10 04:04:29 - student_distilled_transformer_crf_False - INFO - Epoch 4 val_loss=0.3516, val_acc=0.9256
+2026-06-10 04:04:30 - student_distilled_transformer_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_distilled/checkpoints/004_model.pt
+2026-06-10 04:04:30 - student_distilled_transformer_crf_False - INFO - New best model saved at epoch 4 with val_loss 0.3516
+2026-06-10 04:05:54 - student_distilled_transformer_crf_False - INFO - Epoch 5 train_loss=0.2230, train_acc=0.9587
+2026-06-10 04:05:56 - student_distilled_transformer_crf_False - INFO - Epoch 5 val_loss=0.3112, val_acc=0.9293
+2026-06-10 04:06:00 - student_distilled_transformer_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_distilled/checkpoints/005_model.pt
+2026-06-10 04:06:06 - student_distilled_transformer_crf_False - INFO - New best model saved at epoch 5 with val_loss 0.3112
+2026-06-10 04:07:30 - student_distilled_transformer_crf_False - INFO - Epoch 6 train_loss=0.1851, train_acc=0.9656
+2026-06-10 04:07:31 - student_distilled_transformer_crf_False - INFO - Epoch 6 val_loss=0.3058, val_acc=0.9353
+2026-06-10 04:07:38 - student_distilled_transformer_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_distilled/checkpoints/006_model.pt
+2026-06-10 04:07:44 - student_distilled_transformer_crf_False - INFO - New best model saved at epoch 6 with val_loss 0.3058
+2026-06-10 04:09:08 - student_distilled_transformer_crf_False - INFO - Epoch 7 train_loss=0.1522, train_acc=0.9711
+2026-06-10 04:09:10 - student_distilled_transformer_crf_False - INFO - Epoch 7 val_loss=0.3067, val_acc=0.9371
+2026-06-10 04:09:16 - student_distilled_transformer_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_distilled/checkpoints/007_model.pt
+2026-06-10 04:10:40 - student_distilled_transformer_crf_False - INFO - Epoch 8 train_loss=0.1301, train_acc=0.9750
+2026-06-10 04:10:42 - student_distilled_transformer_crf_False - INFO - Epoch 8 val_loss=0.3086, val_acc=0.9384
+2026-06-10 04:10:47 - student_distilled_transformer_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_distilled/checkpoints/008_model.pt
+2026-06-10 04:12:10 - student_distilled_transformer_crf_False - INFO - Epoch 9 train_loss=0.0997, train_acc=0.9808
+2026-06-10 04:12:12 - student_distilled_transformer_crf_False - INFO - Epoch 9 val_loss=0.2767, val_acc=0.9445
+2026-06-10 04:12:15 - student_distilled_transformer_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_distilled/checkpoints/009_model.pt
+2026-06-10 04:12:15 - student_distilled_transformer_crf_False - INFO - New best model saved at epoch 9 with val_loss 0.2767
+2026-06-10 04:13:39 - student_distilled_transformer_crf_False - INFO - Epoch 10 train_loss=0.0846, train_acc=0.9838
+2026-06-10 04:13:42 - student_distilled_transformer_crf_False - INFO - Epoch 10 val_loss=0.2650, val_acc=0.9459
+2026-06-10 04:14:05 - student_distilled_transformer_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_distilled/checkpoints/010_model.pt
+2026-06-10 04:14:06 - student_distilled_transformer_crf_False - INFO - New best model saved at epoch 10 with val_loss 0.2650

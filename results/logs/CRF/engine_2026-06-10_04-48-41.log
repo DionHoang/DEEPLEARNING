@@ -1,0 +1,33 @@
+2026-06-10 04:48:44 - engine - INFO - Loading evaluation (test) dataset...
+2026-06-10 04:48:44 - engine - INFO - 
+==================================================
+BẮT ĐẦU ĐÁNH GIÁ MODEL: LSTM
+==================================================
+2026-06-10 04:48:44 - engine - INFO - Loading weights from checkpoint: results/lstm_distilled_crf/checkpoints/best_model.pt
+2026-06-10 04:48:44 - engine - INFO - Running evaluation cycle...
+2026-06-10 04:48:52 - engine - INFO - 
+Token-Level Evaluation Report (LSTM):
+2026-06-10 04:48:52 - engine - INFO - Overall Accuracy: 0.9537
+2026-06-10 04:48:52 - engine - INFO - Macro F1-Score: 0.7122
+2026-06-10 04:48:52 - engine - INFO - 
+Entity-Level BIO Evaluation Report (LSTM):
+2026-06-10 04:48:52 - engine - INFO - Overall F1-Score: 0.8672
+2026-06-10 04:48:52 - engine - INFO - 
+Detailed Entity Report (LSTM):
+                     precision    recall  f1-score   support
+
+                AGE       0.92      0.90      0.91       582
+               DATE       0.94      0.94      0.94      1654
+             GENDER       0.91      0.91      0.91       462
+                JOB       0.70      0.42      0.53       173
+           LOCATION       0.84      0.86      0.85      4441
+               NAME       0.89      0.71      0.79       318
+       ORGANIZATION       0.76      0.75      0.75       771
+         PATIENT_ID       0.95      0.94      0.95      2005
+SYMPTOM_AND_DISEASE       0.82      0.74      0.78      1136
+     TRANSPORTATION       0.91      0.87      0.89       193
+
+          micro avg       0.88      0.86      0.87     11735
+          macro avg       0.86      0.80      0.83     11735
+       weighted avg       0.87      0.86      0.87     11735
+

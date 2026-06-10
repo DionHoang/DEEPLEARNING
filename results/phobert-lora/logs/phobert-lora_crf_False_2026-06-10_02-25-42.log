@@ -1,0 +1,33 @@
+2026-06-10 02:25:42 - phobert-lora_crf_False - INFO - Model params: total=137,692,436, trainable=2,694,164
+2026-06-10 02:30:50 - phobert-lora_crf_False - INFO - Epoch 1 train_loss=0.6403, train_acc=0.8501
+2026-06-10 02:31:22 - phobert-lora_crf_False - INFO - Epoch 1 val_loss=0.0784, val_acc=0.9762
+2026-06-10 02:31:45 - phobert-lora_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/phobert-lora/checkpoints/001_model.pt
+2026-06-10 02:31:48 - phobert-lora_crf_False - INFO - New best model saved at epoch 1 with val_loss 0.0784
+2026-06-10 02:36:56 - phobert-lora_crf_False - INFO - Epoch 2 train_loss=0.0566, train_acc=0.9833
+2026-06-10 02:37:28 - phobert-lora_crf_False - INFO - Epoch 2 val_loss=0.0609, val_acc=0.9825
+2026-06-10 02:38:16 - phobert-lora_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/phobert-lora/checkpoints/002_model.pt
+2026-06-10 02:38:18 - phobert-lora_crf_False - INFO - New best model saved at epoch 2 with val_loss 0.0609
+2026-06-10 02:43:26 - phobert-lora_crf_False - INFO - Epoch 3 train_loss=0.0360, train_acc=0.9897
+2026-06-10 02:43:58 - phobert-lora_crf_False - INFO - Epoch 3 val_loss=0.0565, val_acc=0.9835
+2026-06-10 02:44:25 - phobert-lora_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/phobert-lora/checkpoints/003_model.pt
+2026-06-10 02:44:32 - phobert-lora_crf_False - INFO - New best model saved at epoch 3 with val_loss 0.0565
+2026-06-10 02:49:40 - phobert-lora_crf_False - INFO - Epoch 4 train_loss=0.0276, train_acc=0.9921
+2026-06-10 02:50:13 - phobert-lora_crf_False - INFO - Epoch 4 val_loss=0.0545, val_acc=0.9845
+2026-06-10 02:50:25 - phobert-lora_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/phobert-lora/checkpoints/004_model.pt
+2026-06-10 02:50:38 - phobert-lora_crf_False - INFO - New best model saved at epoch 4 with val_loss 0.0545
+2026-06-10 02:55:45 - phobert-lora_crf_False - INFO - Epoch 5 train_loss=0.0213, train_acc=0.9938
+2026-06-10 02:56:18 - phobert-lora_crf_False - INFO - Epoch 5 val_loss=0.0601, val_acc=0.9848
+2026-06-10 02:56:45 - phobert-lora_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/phobert-lora/checkpoints/005_model.pt
+2026-06-10 03:01:53 - phobert-lora_crf_False - INFO - Epoch 6 train_loss=0.0178, train_acc=0.9950
+2026-06-10 03:02:25 - phobert-lora_crf_False - INFO - Epoch 6 val_loss=0.0589, val_acc=0.9846
+2026-06-10 03:02:38 - phobert-lora_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/phobert-lora/checkpoints/006_model.pt
+2026-06-10 03:07:46 - phobert-lora_crf_False - INFO - Epoch 7 train_loss=0.0139, train_acc=0.9961
+2026-06-10 03:08:18 - phobert-lora_crf_False - INFO - Epoch 7 val_loss=0.0666, val_acc=0.9847
+2026-06-10 03:09:07 - phobert-lora_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/phobert-lora/checkpoints/007_model.pt
+2026-06-10 03:14:15 - phobert-lora_crf_False - INFO - Epoch 8 train_loss=0.0113, train_acc=0.9968
+2026-06-10 03:14:48 - phobert-lora_crf_False - INFO - Epoch 8 val_loss=0.0644, val_acc=0.9856
+2026-06-10 03:15:00 - phobert-lora_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/phobert-lora/checkpoints/008_model.pt
+2026-06-10 03:20:09 - phobert-lora_crf_False - INFO - Epoch 9 train_loss=0.0097, train_acc=0.9972
+2026-06-10 03:20:41 - phobert-lora_crf_False - INFO - Epoch 9 val_loss=0.0649, val_acc=0.9859
+2026-06-10 03:21:08 - phobert-lora_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/phobert-lora/checkpoints/009_model.pt
+2026-06-10 03:21:08 - phobert-lora_crf_False - INFO - Early stopping triggered

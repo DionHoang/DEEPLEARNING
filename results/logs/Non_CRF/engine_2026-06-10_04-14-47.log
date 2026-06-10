@@ -1,0 +1,33 @@
+2026-06-10 04:14:48 - engine - INFO - Loading evaluation (test) dataset...
+2026-06-10 04:14:48 - engine - INFO - 
+==================================================
+BẮT ĐẦU ĐÁNH GIÁ MODEL: BILSTM
+==================================================
+2026-06-10 04:14:49 - engine - INFO - Loading weights from checkpoint: results/bilstm_distilled/checkpoints/best_model.pt
+2026-06-10 04:14:49 - engine - INFO - Running evaluation cycle...
+2026-06-10 04:14:55 - engine - INFO - 
+Token-Level Evaluation Report (BILSTM):
+2026-06-10 04:14:55 - engine - INFO - Overall Accuracy: 0.9555
+2026-06-10 04:14:55 - engine - INFO - Macro F1-Score: 0.6820
+2026-06-10 04:14:55 - engine - INFO - 
+Entity-Level BIO Evaluation Report (BILSTM):
+2026-06-10 04:14:55 - engine - INFO - Overall F1-Score: 0.8667
+2026-06-10 04:14:55 - engine - INFO - 
+Detailed Entity Report (BILSTM):
+                     precision    recall  f1-score   support
+
+                AGE       0.91      0.93      0.92       582
+               DATE       0.96      0.95      0.95      1654
+             GENDER       0.94      0.91      0.93       462
+                JOB       0.81      0.27      0.41       173
+           LOCATION       0.85      0.84      0.85      4441
+               NAME       0.92      0.67      0.77       318
+       ORGANIZATION       0.74      0.74      0.74       771
+         PATIENT_ID       0.96      0.95      0.95      2005
+SYMPTOM_AND_DISEASE       0.80      0.74      0.77      1136
+     TRANSPORTATION       0.94      0.79      0.86       193
+
+          micro avg       0.88      0.85      0.87     11735
+          macro avg       0.88      0.78      0.81     11735
+       weighted avg       0.88      0.85      0.86     11735
+

@@ -1,0 +1,32 @@
+2026-06-10 01:15:20 - bilstm_crf_False - INFO - Model params: total=20,353,044, trainable=20,353,044
+2026-06-10 01:15:30 - bilstm_crf_False - INFO - Epoch 1 train_loss=0.4022, train_acc=0.9009
+2026-06-10 01:15:32 - bilstm_crf_False - INFO - Epoch 1 val_loss=0.1585, val_acc=0.9530
+2026-06-10 01:15:32 - bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm/checkpoints/001_model.pt
+2026-06-10 01:15:34 - bilstm_crf_False - INFO - New best model saved at epoch 1 with val_loss 0.1585
+2026-06-10 01:15:45 - bilstm_crf_False - INFO - Epoch 2 train_loss=0.0841, train_acc=0.9754
+2026-06-10 01:15:46 - bilstm_crf_False - INFO - Epoch 2 val_loss=0.1239, val_acc=0.9634
+2026-06-10 01:15:47 - bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm/checkpoints/002_model.pt
+2026-06-10 01:15:47 - bilstm_crf_False - INFO - New best model saved at epoch 2 with val_loss 0.1239
+2026-06-10 01:15:58 - bilstm_crf_False - INFO - Epoch 3 train_loss=0.0423, train_acc=0.9878
+2026-06-10 01:15:59 - bilstm_crf_False - INFO - Epoch 3 val_loss=0.1339, val_acc=0.9647
+2026-06-10 01:16:00 - bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm/checkpoints/003_model.pt
+2026-06-10 01:16:10 - bilstm_crf_False - INFO - Epoch 4 train_loss=0.0258, train_acc=0.9930
+2026-06-10 01:16:12 - bilstm_crf_False - INFO - Epoch 4 val_loss=0.1216, val_acc=0.9683
+2026-06-10 01:16:12 - bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm/checkpoints/004_model.pt
+2026-06-10 01:16:16 - bilstm_crf_False - INFO - New best model saved at epoch 4 with val_loss 0.1216
+2026-06-10 01:16:26 - bilstm_crf_False - INFO - Epoch 5 train_loss=0.0162, train_acc=0.9956
+2026-06-10 01:16:28 - bilstm_crf_False - INFO - Epoch 5 val_loss=0.1603, val_acc=0.9638
+2026-06-10 01:16:28 - bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm/checkpoints/005_model.pt
+2026-06-10 01:16:39 - bilstm_crf_False - INFO - Epoch 6 train_loss=0.0106, train_acc=0.9973
+2026-06-10 01:16:40 - bilstm_crf_False - INFO - Epoch 6 val_loss=0.1491, val_acc=0.9678
+2026-06-10 01:16:41 - bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm/checkpoints/006_model.pt
+2026-06-10 01:16:51 - bilstm_crf_False - INFO - Epoch 7 train_loss=0.0056, train_acc=0.9987
+2026-06-10 01:16:52 - bilstm_crf_False - INFO - Epoch 7 val_loss=0.1553, val_acc=0.9685
+2026-06-10 01:16:53 - bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm/checkpoints/007_model.pt
+2026-06-10 01:17:03 - bilstm_crf_False - INFO - Epoch 8 train_loss=0.0038, train_acc=0.9992
+2026-06-10 01:17:05 - bilstm_crf_False - INFO - Epoch 8 val_loss=0.1635, val_acc=0.9681
+2026-06-10 01:17:05 - bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm/checkpoints/008_model.pt
+2026-06-10 01:17:16 - bilstm_crf_False - INFO - Epoch 9 train_loss=0.0027, train_acc=0.9995
+2026-06-10 01:17:18 - bilstm_crf_False - INFO - Epoch 9 val_loss=0.1639, val_acc=0.9685
+2026-06-10 01:17:18 - bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm/checkpoints/009_model.pt
+2026-06-10 01:17:18 - bilstm_crf_False - INFO - Early stopping triggered

@@ -1,0 +1,33 @@
+2026-06-10 01:13:44 - lstm_crf_False - INFO - Model params: total=19,776,532, trainable=19,776,532
+2026-06-10 01:13:52 - lstm_crf_False - INFO - Epoch 1 train_loss=0.4947, train_acc=0.8764
+2026-06-10 01:13:54 - lstm_crf_False - INFO - Epoch 1 val_loss=0.2254, val_acc=0.9332
+2026-06-10 01:13:54 - lstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/lstm/checkpoints/001_model.pt
+2026-06-10 01:13:55 - lstm_crf_False - INFO - New best model saved at epoch 1 with val_loss 0.2254
+2026-06-10 01:14:02 - lstm_crf_False - INFO - Epoch 2 train_loss=0.1291, train_acc=0.9631
+2026-06-10 01:14:04 - lstm_crf_False - INFO - Epoch 2 val_loss=0.1709, val_acc=0.9495
+2026-06-10 01:14:04 - lstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/lstm/checkpoints/002_model.pt
+2026-06-10 01:14:05 - lstm_crf_False - INFO - New best model saved at epoch 2 with val_loss 0.1709
+2026-06-10 01:14:13 - lstm_crf_False - INFO - Epoch 3 train_loss=0.0827, train_acc=0.9758
+2026-06-10 01:14:14 - lstm_crf_False - INFO - Epoch 3 val_loss=0.1572, val_acc=0.9554
+2026-06-10 01:14:15 - lstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/lstm/checkpoints/003_model.pt
+2026-06-10 01:14:16 - lstm_crf_False - INFO - New best model saved at epoch 3 with val_loss 0.1572
+2026-06-10 01:14:24 - lstm_crf_False - INFO - Epoch 4 train_loss=0.0586, train_acc=0.9828
+2026-06-10 01:14:26 - lstm_crf_False - INFO - Epoch 4 val_loss=0.1556, val_acc=0.9579
+2026-06-10 01:14:26 - lstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/lstm/checkpoints/004_model.pt
+2026-06-10 01:14:31 - lstm_crf_False - INFO - New best model saved at epoch 4 with val_loss 0.1556
+2026-06-10 01:14:39 - lstm_crf_False - INFO - Epoch 5 train_loss=0.0445, train_acc=0.9866
+2026-06-10 01:14:40 - lstm_crf_False - INFO - Epoch 5 val_loss=0.1582, val_acc=0.9581
+2026-06-10 01:14:41 - lstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/lstm/checkpoints/005_model.pt
+2026-06-10 01:14:48 - lstm_crf_False - INFO - Epoch 6 train_loss=0.0352, train_acc=0.9894
+2026-06-10 01:14:50 - lstm_crf_False - INFO - Epoch 6 val_loss=0.1670, val_acc=0.9595
+2026-06-10 01:14:50 - lstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/lstm/checkpoints/006_model.pt
+2026-06-10 01:14:57 - lstm_crf_False - INFO - Epoch 7 train_loss=0.0251, train_acc=0.9926
+2026-06-10 01:14:59 - lstm_crf_False - INFO - Epoch 7 val_loss=0.1852, val_acc=0.9573
+2026-06-10 01:14:59 - lstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/lstm/checkpoints/007_model.pt
+2026-06-10 01:15:07 - lstm_crf_False - INFO - Epoch 8 train_loss=0.0207, train_acc=0.9942
+2026-06-10 01:15:08 - lstm_crf_False - INFO - Epoch 8 val_loss=0.2161, val_acc=0.9543
+2026-06-10 01:15:09 - lstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/lstm/checkpoints/008_model.pt
+2026-06-10 01:15:17 - lstm_crf_False - INFO - Epoch 9 train_loss=0.0156, train_acc=0.9955
+2026-06-10 01:15:18 - lstm_crf_False - INFO - Epoch 9 val_loss=0.2078, val_acc=0.9560
+2026-06-10 01:15:19 - lstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/lstm/checkpoints/009_model.pt
+2026-06-10 01:15:19 - lstm_crf_False - INFO - Early stopping triggered

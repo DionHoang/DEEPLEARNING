@@ -1,0 +1,3 @@
+2026-06-10 04:52:32 - model - INFO - Instantiating LSTM model (CRF=True)
+2026-06-10 05:49:06 - model - INFO - Instantiating Bidirectional LSTM model (CRF=True)
+2026-06-10 07:30:54 - model - INFO - Instantiating Scratch Transformer model (CRF=True)

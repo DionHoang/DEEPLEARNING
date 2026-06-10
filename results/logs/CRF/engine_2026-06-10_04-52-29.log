@@ -1,0 +1,19 @@
+2026-06-10 04:52:31 - engine - INFO - === STARTING QUANTIZATION AWARE TRAINING (QAT) ===
+2026-06-10 04:52:31 - engine - INFO - 
+==================================================
+BẮT ĐẦU QAT MODEL: LSTM
+==================================================
+2026-06-10 05:49:06 - engine - INFO - Saved converted QAT quantized model to: /content/DEEPLEARNING/results/lstm_qat_crf/checkpoints/lstm_quantized_qat.pt
+2026-06-10 05:49:06 - engine - INFO - QAT completed for LSTM. Float best checkpoint and quantized artifact are ready for deployment.
+2026-06-10 05:49:06 - engine - INFO - 
+==================================================
+BẮT ĐẦU QAT MODEL: BILSTM
+==================================================
+2026-06-10 07:30:53 - engine - INFO - Saved converted QAT quantized model to: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/bilstm_quantized_qat.pt
+2026-06-10 07:30:53 - engine - INFO - QAT completed for BILSTM. Float best checkpoint and quantized artifact are ready for deployment.
+2026-06-10 07:30:53 - engine - INFO - 
+==================================================
+BẮT ĐẦU QAT MODEL: TRANSFORMER
+==================================================
+2026-06-10 07:44:21 - engine - INFO - Saved converted QAT quantized model to: /content/DEEPLEARNING/results/transformer_qat_crf/checkpoints/transformer_quantized_qat.pt
+2026-06-10 07:44:21 - engine - INFO - QAT completed for TRANSFORMER. Float best checkpoint and quantized artifact are ready for deployment.

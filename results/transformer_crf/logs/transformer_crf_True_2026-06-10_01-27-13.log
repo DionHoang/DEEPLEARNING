@@ -1,0 +1,38 @@
+2026-06-10 01:27:13 - transformer_crf_True - INFO - Model params: total=18,497,996, trainable=18,497,996
+2026-06-10 01:28:52 - transformer_crf_True - INFO - Epoch 1 train_loss=15.7849, train_acc=0.7084
+2026-06-10 01:29:02 - transformer_crf_True - INFO - Epoch 1 val_loss=9.4977, val_acc=0.6407
+2026-06-10 01:29:02 - transformer_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_crf/checkpoints/001_model.pt
+2026-06-10 01:29:02 - transformer_crf_True - INFO - New best model saved at epoch 1 with val_loss 9.4977
+2026-06-10 01:30:42 - transformer_crf_True - INFO - Epoch 2 train_loss=5.8577, train_acc=0.6763
+2026-06-10 01:30:52 - transformer_crf_True - INFO - Epoch 2 val_loss=6.2677, val_acc=0.6359
+2026-06-10 01:30:52 - transformer_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_crf/checkpoints/002_model.pt
+2026-06-10 01:30:52 - transformer_crf_True - INFO - New best model saved at epoch 2 with val_loss 6.2677
+2026-06-10 01:32:32 - transformer_crf_True - INFO - Epoch 3 train_loss=3.4608, train_acc=0.6760
+2026-06-10 01:32:41 - transformer_crf_True - INFO - Epoch 3 val_loss=5.0210, val_acc=0.6479
+2026-06-10 01:32:42 - transformer_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_crf/checkpoints/003_model.pt
+2026-06-10 01:32:42 - transformer_crf_True - INFO - New best model saved at epoch 3 with val_loss 5.0210
+2026-06-10 01:34:21 - transformer_crf_True - INFO - Epoch 4 train_loss=2.2762, train_acc=0.6778
+2026-06-10 01:34:31 - transformer_crf_True - INFO - Epoch 4 val_loss=4.6094, val_acc=0.6489
+2026-06-10 01:34:31 - transformer_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_crf/checkpoints/004_model.pt
+2026-06-10 01:34:32 - transformer_crf_True - INFO - New best model saved at epoch 4 with val_loss 4.6094
+2026-06-10 01:36:11 - transformer_crf_True - INFO - Epoch 5 train_loss=1.5307, train_acc=0.6781
+2026-06-10 01:36:20 - transformer_crf_True - INFO - Epoch 5 val_loss=4.4957, val_acc=0.6522
+2026-06-10 01:36:21 - transformer_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_crf/checkpoints/005_model.pt
+2026-06-10 01:36:21 - transformer_crf_True - INFO - New best model saved at epoch 5 with val_loss 4.4957
+2026-06-10 01:38:00 - transformer_crf_True - INFO - Epoch 6 train_loss=1.0060, train_acc=0.6790
+2026-06-10 01:38:10 - transformer_crf_True - INFO - Epoch 6 val_loss=4.4828, val_acc=0.6504
+2026-06-10 01:38:10 - transformer_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_crf/checkpoints/006_model.pt
+2026-06-10 01:38:10 - transformer_crf_True - INFO - New best model saved at epoch 6 with val_loss 4.4828
+2026-06-10 01:39:49 - transformer_crf_True - INFO - Epoch 7 train_loss=0.6329, train_acc=0.6797
+2026-06-10 01:39:59 - transformer_crf_True - INFO - Epoch 7 val_loss=4.6677, val_acc=0.6466
+2026-06-10 01:39:59 - transformer_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_crf/checkpoints/007_model.pt
+2026-06-10 01:41:39 - transformer_crf_True - INFO - Epoch 8 train_loss=0.4129, train_acc=0.6802
+2026-06-10 01:41:48 - transformer_crf_True - INFO - Epoch 8 val_loss=4.4379, val_acc=0.6516
+2026-06-10 01:41:49 - transformer_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_crf/checkpoints/008_model.pt
+2026-06-10 01:41:49 - transformer_crf_True - INFO - New best model saved at epoch 8 with val_loss 4.4379
+2026-06-10 01:43:28 - transformer_crf_True - INFO - Epoch 9 train_loss=0.1987, train_acc=0.6800
+2026-06-10 01:43:37 - transformer_crf_True - INFO - Epoch 9 val_loss=4.6910, val_acc=0.6551
+2026-06-10 01:43:38 - transformer_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_crf/checkpoints/009_model.pt
+2026-06-10 01:45:17 - transformer_crf_True - INFO - Epoch 10 train_loss=-0.0446, train_acc=0.6807
+2026-06-10 01:45:26 - transformer_crf_True - INFO - Epoch 10 val_loss=4.6072, val_acc=0.6543
+2026-06-10 01:45:27 - transformer_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_crf/checkpoints/010_model.pt

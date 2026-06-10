@@ -1,0 +1,44 @@
+2026-06-10 05:47:43 - transformer_qat_crf_False - INFO - Model params: total=18,497,556, trainable=18,497,556
+2026-06-10 05:47:43 - transformer_qat_crf_False - INFO - === STARTING QAT PIPELINE ===
+2026-06-10 05:47:43 - transformer_qat_crf_False - INFO - Auto preparing model for QAT...
+2026-06-10 05:47:43 - transformer_qat_crf_False - INFO - Model prepared for QAT (FakeQuant nodes attached)
+2026-06-10 05:48:00 - transformer_qat_crf_False - INFO - Epoch 1 train_loss=0.7768, train_acc=0.8192
+2026-06-10 05:48:03 - transformer_qat_crf_False - INFO - Epoch 1 val_loss=0.5104, val_acc=0.8554
+2026-06-10 05:48:04 - transformer_qat_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_qat/checkpoints/001_model.pt
+2026-06-10 05:48:05 - transformer_qat_crf_False - INFO - New best model saved at epoch 1 with val_loss 0.5104
+2026-06-10 05:48:20 - transformer_qat_crf_False - INFO - Epoch 2 train_loss=0.3049, train_acc=0.9094
+2026-06-10 05:48:22 - transformer_qat_crf_False - INFO - Epoch 2 val_loss=0.3443, val_acc=0.8934
+2026-06-10 05:48:22 - transformer_qat_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_qat/checkpoints/002_model.pt
+2026-06-10 05:48:24 - transformer_qat_crf_False - INFO - New best model saved at epoch 2 with val_loss 0.3443
+2026-06-10 05:48:39 - transformer_qat_crf_False - INFO - Epoch 3 train_loss=0.2009, train_acc=0.9377
+2026-06-10 05:48:41 - transformer_qat_crf_False - INFO - Epoch 3 val_loss=0.2817, val_acc=0.9139
+2026-06-10 05:48:42 - transformer_qat_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_qat/checkpoints/003_model.pt
+2026-06-10 05:49:31 - transformer_qat_crf_False - INFO - New best model saved at epoch 3 with val_loss 0.2817
+2026-06-10 05:49:46 - transformer_qat_crf_False - INFO - Epoch 4 train_loss=0.1443, train_acc=0.9545
+2026-06-10 05:49:48 - transformer_qat_crf_False - INFO - Epoch 4 val_loss=0.2305, val_acc=0.9310
+2026-06-10 05:49:49 - transformer_qat_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_qat/checkpoints/004_model.pt
+2026-06-10 05:49:50 - transformer_qat_crf_False - INFO - New best model saved at epoch 4 with val_loss 0.2305
+2026-06-10 05:50:06 - transformer_qat_crf_False - INFO - Epoch 5 train_loss=0.1139, train_acc=0.9635
+2026-06-10 05:50:08 - transformer_qat_crf_False - INFO - Epoch 5 val_loss=0.2279, val_acc=0.9325
+2026-06-10 05:50:08 - transformer_qat_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_qat/checkpoints/005_model.pt
+2026-06-10 05:50:11 - transformer_qat_crf_False - INFO - New best model saved at epoch 5 with val_loss 0.2279
+2026-06-10 05:50:26 - transformer_qat_crf_False - INFO - Epoch 6 train_loss=0.0943, train_acc=0.9692
+2026-06-10 05:50:29 - transformer_qat_crf_False - INFO - Epoch 6 val_loss=0.2264, val_acc=0.9368
+2026-06-10 05:50:29 - transformer_qat_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_qat/checkpoints/006_model.pt
+2026-06-10 05:50:32 - transformer_qat_crf_False - INFO - New best model saved at epoch 6 with val_loss 0.2264
+2026-06-10 05:50:47 - transformer_qat_crf_False - INFO - Epoch 7 train_loss=0.0757, train_acc=0.9753
+2026-06-10 05:50:49 - transformer_qat_crf_False - INFO - Epoch 7 val_loss=0.2200, val_acc=0.9385
+2026-06-10 05:50:49 - transformer_qat_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_qat/checkpoints/007_model.pt
+2026-06-10 05:50:50 - transformer_qat_crf_False - INFO - New best model saved at epoch 7 with val_loss 0.2200
+2026-06-10 05:51:06 - transformer_qat_crf_False - INFO - Epoch 8 train_loss=0.0636, train_acc=0.9791
+2026-06-10 05:51:08 - transformer_qat_crf_False - INFO - Epoch 8 val_loss=0.2293, val_acc=0.9396
+2026-06-10 05:51:08 - transformer_qat_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_qat/checkpoints/008_model.pt
+2026-06-10 05:51:24 - transformer_qat_crf_False - INFO - Epoch 9 train_loss=0.0566, train_acc=0.9812
+2026-06-10 05:51:26 - transformer_qat_crf_False - INFO - Epoch 9 val_loss=0.2262, val_acc=0.9429
+2026-06-10 05:51:26 - transformer_qat_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_qat/checkpoints/009_model.pt
+2026-06-10 05:51:41 - transformer_qat_crf_False - INFO - Epoch 10 train_loss=0.0496, train_acc=0.9833
+2026-06-10 05:51:43 - transformer_qat_crf_False - INFO - Epoch 10 val_loss=0.2250, val_acc=0.9428
+2026-06-10 05:51:44 - transformer_qat_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/transformer_qat/checkpoints/010_model.pt
+2026-06-10 05:51:44 - transformer_qat_crf_False - INFO - Loading best checkpoint: /content/DEEPLEARNING/results/transformer_qat/checkpoints/best_model.pt
+2026-06-10 05:51:44 - transformer_qat_crf_False - INFO - Loaded checkpoint: /content/DEEPLEARNING/results/transformer_qat/checkpoints/best_model.pt
+2026-06-10 05:51:45 - transformer_qat_crf_False - INFO - Model converted to INT8

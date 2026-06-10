@@ -1,0 +1,47 @@
+2026-06-10 05:49:06 - bilstm_qat_crf_True - INFO - Model params: total=20,353,484, trainable=20,353,484
+2026-06-10 05:49:06 - bilstm_qat_crf_True - INFO - === STARTING QAT PIPELINE ===
+2026-06-10 05:49:06 - bilstm_qat_crf_True - INFO - Auto preparing model for QAT...
+2026-06-10 05:49:06 - bilstm_qat_crf_True - INFO - Model prepared for QAT (FakeQuant nodes attached)
+2026-06-10 05:56:55 - bilstm_qat_crf_True - INFO - Epoch 1 train_loss=65.8329, train_acc=0.7070
+2026-06-10 05:59:13 - bilstm_qat_crf_True - INFO - Epoch 1 val_loss=54.4108, val_acc=0.7482
+2026-06-10 05:59:14 - bilstm_qat_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/001_model.pt
+2026-06-10 05:59:14 - bilstm_qat_crf_True - INFO - New best model saved at epoch 1 with val_loss 54.4108
+2026-06-10 06:07:05 - bilstm_qat_crf_True - INFO - Epoch 2 train_loss=37.1737, train_acc=0.7906
+2026-06-10 06:09:24 - bilstm_qat_crf_True - INFO - Epoch 2 val_loss=31.8144, val_acc=0.7491
+2026-06-10 06:09:24 - bilstm_qat_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/002_model.pt
+2026-06-10 06:09:24 - bilstm_qat_crf_True - INFO - New best model saved at epoch 2 with val_loss 31.8144
+2026-06-10 06:17:15 - bilstm_qat_crf_True - INFO - Epoch 3 train_loss=22.5421, train_acc=0.7919
+2026-06-10 06:19:33 - bilstm_qat_crf_True - INFO - Epoch 3 val_loss=23.2603, val_acc=0.7500
+2026-06-10 06:19:34 - bilstm_qat_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/003_model.pt
+2026-06-10 06:19:34 - bilstm_qat_crf_True - INFO - New best model saved at epoch 3 with val_loss 23.2603
+2026-06-10 06:27:26 - bilstm_qat_crf_True - INFO - Epoch 4 train_loss=17.0350, train_acc=0.7908
+2026-06-10 06:29:45 - bilstm_qat_crf_True - INFO - Epoch 4 val_loss=18.9596, val_acc=0.7439
+2026-06-10 06:29:45 - bilstm_qat_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/004_model.pt
+2026-06-10 06:29:45 - bilstm_qat_crf_True - INFO - New best model saved at epoch 4 with val_loss 18.9596
+2026-06-10 06:37:37 - bilstm_qat_crf_True - INFO - Epoch 5 train_loss=13.7714, train_acc=0.7821
+2026-06-10 06:39:56 - bilstm_qat_crf_True - INFO - Epoch 5 val_loss=15.8992, val_acc=0.7321
+2026-06-10 06:39:56 - bilstm_qat_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/005_model.pt
+2026-06-10 06:39:57 - bilstm_qat_crf_True - INFO - New best model saved at epoch 5 with val_loss 15.8992
+2026-06-10 06:47:50 - bilstm_qat_crf_True - INFO - Epoch 6 train_loss=11.4103, train_acc=0.7710
+2026-06-10 06:50:09 - bilstm_qat_crf_True - INFO - Epoch 6 val_loss=13.5146, val_acc=0.7197
+2026-06-10 06:50:09 - bilstm_qat_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/006_model.pt
+2026-06-10 06:50:09 - bilstm_qat_crf_True - INFO - New best model saved at epoch 6 with val_loss 13.5146
+2026-06-10 06:58:01 - bilstm_qat_crf_True - INFO - Epoch 7 train_loss=9.4863, train_acc=0.7603
+2026-06-10 07:00:19 - bilstm_qat_crf_True - INFO - Epoch 7 val_loss=11.6039, val_acc=0.7105
+2026-06-10 07:00:20 - bilstm_qat_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/007_model.pt
+2026-06-10 07:00:20 - bilstm_qat_crf_True - INFO - New best model saved at epoch 7 with val_loss 11.6039
+2026-06-10 07:08:13 - bilstm_qat_crf_True - INFO - Epoch 8 train_loss=8.0440, train_acc=0.7509
+2026-06-10 07:10:33 - bilstm_qat_crf_True - INFO - Epoch 8 val_loss=10.1132, val_acc=0.7017
+2026-06-10 07:10:33 - bilstm_qat_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/008_model.pt
+2026-06-10 07:10:34 - bilstm_qat_crf_True - INFO - New best model saved at epoch 8 with val_loss 10.1132
+2026-06-10 07:18:25 - bilstm_qat_crf_True - INFO - Epoch 9 train_loss=6.8547, train_acc=0.7407
+2026-06-10 07:20:43 - bilstm_qat_crf_True - INFO - Epoch 9 val_loss=8.9203, val_acc=0.6927
+2026-06-10 07:20:43 - bilstm_qat_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/009_model.pt
+2026-06-10 07:20:44 - bilstm_qat_crf_True - INFO - New best model saved at epoch 9 with val_loss 8.9203
+2026-06-10 07:28:34 - bilstm_qat_crf_True - INFO - Epoch 10 train_loss=5.9627, train_acc=0.7339
+2026-06-10 07:30:52 - bilstm_qat_crf_True - INFO - Epoch 10 val_loss=7.9606, val_acc=0.6856
+2026-06-10 07:30:53 - bilstm_qat_crf_True - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/010_model.pt
+2026-06-10 07:30:53 - bilstm_qat_crf_True - INFO - New best model saved at epoch 10 with val_loss 7.9606
+2026-06-10 07:30:53 - bilstm_qat_crf_True - INFO - Loading best checkpoint: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/best_model.pt
+2026-06-10 07:30:53 - bilstm_qat_crf_True - INFO - Loaded checkpoint: /content/DEEPLEARNING/results/bilstm_qat_crf/checkpoints/best_model.pt
+2026-06-10 07:30:53 - bilstm_qat_crf_True - INFO - Model converted to INT8

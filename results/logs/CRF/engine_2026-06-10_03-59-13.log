@@ -1,0 +1,20 @@
+2026-06-10 03:59:15 - engine - INFO - === KNOWLEDGE DISTILLATION ===
+2026-06-10 03:59:17 - engine - INFO - Loading Teacher model weights from: /content/DEEPLEARNING/results/phobert_crf/checkpoints/best_model.pt
+2026-06-10 03:59:19 - engine - INFO - 
+==================================================
+BẮT ĐẦU DISTILL VÀO STUDENT MODEL: LSTM
+==================================================
+2026-06-10 03:59:19 - engine - INFO - Starting Knowledge Distillation for Student: lstm...
+2026-06-10 04:15:25 - engine - INFO - Distillation finished. Best checkpoint for lstm saved at: /content/DEEPLEARNING/results/lstm_distilled_crf/checkpoints/best_model.pt
+2026-06-10 04:15:25 - engine - INFO - 
+==================================================
+BẮT ĐẦU DISTILL VÀO STUDENT MODEL: BILSTM
+==================================================
+2026-06-10 04:15:25 - engine - INFO - Starting Knowledge Distillation for Student: bilstm...
+2026-06-10 04:31:51 - engine - INFO - Distillation finished. Best checkpoint for bilstm saved at: /content/DEEPLEARNING/results/bilstm_distilled_crf/checkpoints/best_model.pt
+2026-06-10 04:31:51 - engine - INFO - 
+==================================================
+BẮT ĐẦU DISTILL VÀO STUDENT MODEL: TRANSFORMER
+==================================================
+2026-06-10 04:31:51 - engine - INFO - Starting Knowledge Distillation for Student: transformer...
+2026-06-10 04:48:28 - engine - INFO - Distillation finished. Best checkpoint for transformer saved at: /content/DEEPLEARNING/results/transformer_distilled_crf/checkpoints/best_model.pt

@@ -1,0 +1,33 @@
+2026-06-10 04:15:13 - engine - INFO - Loading evaluation (test) dataset...
+2026-06-10 04:15:13 - engine - INFO - 
+==================================================
+BẮT ĐẦU ĐÁNH GIÁ MODEL: TRANSFORMER
+==================================================
+2026-06-10 04:15:13 - engine - INFO - Loading weights from checkpoint: results/transformer_distilled/checkpoints/best_model.pt
+2026-06-10 04:15:13 - engine - INFO - Running evaluation cycle...
+2026-06-10 04:15:19 - engine - INFO - 
+Token-Level Evaluation Report (TRANSFORMER):
+2026-06-10 04:15:19 - engine - INFO - Overall Accuracy: 0.9424
+2026-06-10 04:15:19 - engine - INFO - Macro F1-Score: 0.6647
+2026-06-10 04:15:19 - engine - INFO - 
+Entity-Level BIO Evaluation Report (TRANSFORMER):
+2026-06-10 04:15:19 - engine - INFO - Overall F1-Score: 0.7920
+2026-06-10 04:15:19 - engine - INFO - 
+Detailed Entity Report (TRANSFORMER):
+                     precision    recall  f1-score   support
+
+                AGE       0.88      0.92      0.90       582
+               DATE       0.86      0.93      0.89      1654
+             GENDER       0.94      0.95      0.95       462
+                JOB       0.55      0.37      0.44       173
+           LOCATION       0.71      0.80      0.75      4441
+               NAME       0.85      0.69      0.76       318
+       ORGANIZATION       0.56      0.68      0.62       771
+         PATIENT_ID       0.89      0.91      0.90      2005
+SYMPTOM_AND_DISEASE       0.65      0.70      0.67      1136
+     TRANSPORTATION       0.82      0.79      0.80       193
+
+          micro avg       0.76      0.82      0.79     11735
+          macro avg       0.77      0.78      0.77     11735
+       weighted avg       0.77      0.82      0.79     11735
+

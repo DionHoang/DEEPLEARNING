@@ -1,0 +1,3 @@
+2026-06-10 04:15:39 - src.quantize_utils - INFO - Applied dynamic PTQ (skipping MultiheadAttention internals)
+2026-06-10 04:15:53 - src.quantize_utils - INFO - Applied dynamic PTQ (skipping MultiheadAttention internals)
+2026-06-10 04:16:16 - src.quantize_utils - INFO - Applied dynamic PTQ (skipping MultiheadAttention internals)

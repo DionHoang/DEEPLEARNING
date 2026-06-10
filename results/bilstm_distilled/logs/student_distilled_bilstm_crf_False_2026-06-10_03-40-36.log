@@ -1,0 +1,38 @@
+2026-06-10 03:40:36 - student_distilled_bilstm_crf_False - INFO - Model params: total=20,353,044, trainable=20,353,044
+2026-06-10 03:41:52 - student_distilled_bilstm_crf_False - INFO - Epoch 1 train_loss=1.0934, train_acc=0.8432
+2026-06-10 03:41:54 - student_distilled_bilstm_crf_False - INFO - Epoch 1 val_loss=0.3545, val_acc=0.9012
+2026-06-10 03:42:26 - student_distilled_bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_distilled/checkpoints/001_model.pt
+2026-06-10 03:42:37 - student_distilled_bilstm_crf_False - INFO - New best model saved at epoch 1 with val_loss 0.3545
+2026-06-10 03:43:53 - student_distilled_bilstm_crf_False - INFO - Epoch 2 train_loss=0.3428, train_acc=0.9510
+2026-06-10 03:43:56 - student_distilled_bilstm_crf_False - INFO - Epoch 2 val_loss=0.2316, val_acc=0.9390
+2026-06-10 03:44:01 - student_distilled_bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_distilled/checkpoints/002_model.pt
+2026-06-10 03:44:07 - student_distilled_bilstm_crf_False - INFO - New best model saved at epoch 2 with val_loss 0.2316
+2026-06-10 03:45:24 - student_distilled_bilstm_crf_False - INFO - Epoch 3 train_loss=0.2330, train_acc=0.9691
+2026-06-10 03:45:25 - student_distilled_bilstm_crf_False - INFO - Epoch 3 val_loss=0.1976, val_acc=0.9493
+2026-06-10 03:46:10 - student_distilled_bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_distilled/checkpoints/003_model.pt
+2026-06-10 03:46:11 - student_distilled_bilstm_crf_False - INFO - New best model saved at epoch 3 with val_loss 0.1976
+2026-06-10 03:47:27 - student_distilled_bilstm_crf_False - INFO - Epoch 4 train_loss=0.1830, train_acc=0.9776
+2026-06-10 03:47:29 - student_distilled_bilstm_crf_False - INFO - Epoch 4 val_loss=0.1762, val_acc=0.9542
+2026-06-10 03:47:34 - student_distilled_bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_distilled/checkpoints/004_model.pt
+2026-06-10 03:47:40 - student_distilled_bilstm_crf_False - INFO - New best model saved at epoch 4 with val_loss 0.1762
+2026-06-10 03:48:57 - student_distilled_bilstm_crf_False - INFO - Epoch 5 train_loss=0.1527, train_acc=0.9823
+2026-06-10 03:48:59 - student_distilled_bilstm_crf_False - INFO - Epoch 5 val_loss=0.1667, val_acc=0.9579
+2026-06-10 03:49:01 - student_distilled_bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_distilled/checkpoints/005_model.pt
+2026-06-10 03:49:05 - student_distilled_bilstm_crf_False - INFO - New best model saved at epoch 5 with val_loss 0.1667
+2026-06-10 03:50:22 - student_distilled_bilstm_crf_False - INFO - Epoch 6 train_loss=0.1320, train_acc=0.9860
+2026-06-10 03:50:24 - student_distilled_bilstm_crf_False - INFO - Epoch 6 val_loss=0.1645, val_acc=0.9590
+2026-06-10 03:50:52 - student_distilled_bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_distilled/checkpoints/006_model.pt
+2026-06-10 03:51:08 - student_distilled_bilstm_crf_False - INFO - New best model saved at epoch 6 with val_loss 0.1645
+2026-06-10 03:52:24 - student_distilled_bilstm_crf_False - INFO - Epoch 7 train_loss=0.1169, train_acc=0.9885
+2026-06-10 03:52:26 - student_distilled_bilstm_crf_False - INFO - Epoch 7 val_loss=0.1707, val_acc=0.9581
+2026-06-10 03:53:07 - student_distilled_bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_distilled/checkpoints/007_model.pt
+2026-06-10 03:54:24 - student_distilled_bilstm_crf_False - INFO - Epoch 8 train_loss=0.1070, train_acc=0.9901
+2026-06-10 03:54:26 - student_distilled_bilstm_crf_False - INFO - Epoch 8 val_loss=0.1603, val_acc=0.9606
+2026-06-10 03:54:47 - student_distilled_bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_distilled/checkpoints/008_model.pt
+2026-06-10 03:54:48 - student_distilled_bilstm_crf_False - INFO - New best model saved at epoch 8 with val_loss 0.1603
+2026-06-10 03:56:04 - student_distilled_bilstm_crf_False - INFO - Epoch 9 train_loss=0.0976, train_acc=0.9917
+2026-06-10 03:56:06 - student_distilled_bilstm_crf_False - INFO - Epoch 9 val_loss=0.1719, val_acc=0.9584
+2026-06-10 03:56:45 - student_distilled_bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_distilled/checkpoints/009_model.pt
+2026-06-10 03:58:02 - student_distilled_bilstm_crf_False - INFO - Epoch 10 train_loss=0.0914, train_acc=0.9927
+2026-06-10 03:58:03 - student_distilled_bilstm_crf_False - INFO - Epoch 10 val_loss=0.1656, val_acc=0.9602
+2026-06-10 03:58:08 - student_distilled_bilstm_crf_False - INFO - Saved checkpoint: /content/DEEPLEARNING/results/bilstm_distilled/checkpoints/010_model.pt

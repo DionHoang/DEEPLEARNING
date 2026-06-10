@@ -1,0 +1,161 @@
+2026-06-10 03:21:34 - engine - INFO - Loading evaluation (test) dataset...
+2026-06-10 03:21:34 - engine - INFO - 
+==================================================
+BẮT ĐẦU ĐÁNH GIÁ MODEL: LSTM
+==================================================
+2026-06-10 03:21:34 - engine - INFO - Loading weights from checkpoint: /content/DEEPLEARNING/results/lstm/checkpoints/best_model.pt
+2026-06-10 03:21:36 - engine - INFO - Running evaluation cycle...
+2026-06-10 03:21:40 - engine - INFO - 
+Token-Level Evaluation Report (LSTM):
+2026-06-10 03:21:40 - engine - INFO - Overall Accuracy: 0.9526
+2026-06-10 03:21:40 - engine - INFO - Macro F1-Score: 0.7163
+2026-06-10 03:21:40 - engine - INFO - 
+Entity-Level BIO Evaluation Report (LSTM):
+2026-06-10 03:21:40 - engine - INFO - Overall F1-Score: 0.8435
+2026-06-10 03:21:40 - engine - INFO - 
+Detailed Entity Report (LSTM):
+                     precision    recall  f1-score   support
+
+                AGE       0.91      0.89      0.90       582
+               DATE       0.92      0.93      0.93      1654
+             GENDER       0.95      0.89      0.92       462
+                JOB       0.49      0.41      0.45       173
+           LOCATION       0.81      0.84      0.82      4441
+               NAME       0.88      0.70      0.78       318
+       ORGANIZATION       0.67      0.73      0.70       771
+         PATIENT_ID       0.95      0.94      0.94      2005
+SYMPTOM_AND_DISEASE       0.74      0.73      0.74      1136
+     TRANSPORTATION       0.92      0.85      0.89       193
+
+          micro avg       0.84      0.85      0.84     11735
+          macro avg       0.82      0.79      0.81     11735
+       weighted avg       0.84      0.85      0.84     11735
+
+2026-06-10 03:21:42 - engine - INFO - 
+==================================================
+BẮT ĐẦU ĐÁNH GIÁ MODEL: BILSTM
+==================================================
+2026-06-10 03:21:42 - engine - INFO - Loading weights from checkpoint: /content/DEEPLEARNING/results/bilstm/checkpoints/best_model.pt
+2026-06-10 03:21:43 - engine - INFO - Running evaluation cycle...
+2026-06-10 03:21:49 - engine - INFO - 
+Token-Level Evaluation Report (BILSTM):
+2026-06-10 03:21:49 - engine - INFO - Overall Accuracy: 0.9622
+2026-06-10 03:21:49 - engine - INFO - Macro F1-Score: 0.7752
+2026-06-10 03:21:49 - engine - INFO - 
+Entity-Level BIO Evaluation Report (BILSTM):
+2026-06-10 03:21:49 - engine - INFO - Overall F1-Score: 0.8758
+2026-06-10 03:21:49 - engine - INFO - 
+Detailed Entity Report (BILSTM):
+                     precision    recall  f1-score   support
+
+                AGE       0.93      0.95      0.94       582
+               DATE       0.95      0.96      0.96      1654
+             GENDER       0.93      0.94      0.93       462
+                JOB       0.55      0.47      0.51       173
+           LOCATION       0.84      0.88      0.86      4441
+               NAME       0.93      0.76      0.84       318
+       ORGANIZATION       0.70      0.79      0.74       771
+         PATIENT_ID       0.94      0.96      0.95      2005
+SYMPTOM_AND_DISEASE       0.79      0.76      0.77      1136
+     TRANSPORTATION       0.85      0.82      0.84       193
+
+          micro avg       0.87      0.89      0.88     11735
+          macro avg       0.84      0.83      0.83     11735
+       weighted avg       0.87      0.89      0.88     11735
+
+2026-06-10 03:21:51 - engine - INFO - 
+==================================================
+BẮT ĐẦU ĐÁNH GIÁ MODEL: TRANSFORMER
+==================================================
+2026-06-10 03:21:51 - engine - INFO - Loading weights from checkpoint: /content/DEEPLEARNING/results/transformer/checkpoints/best_model.pt
+2026-06-10 03:21:52 - engine - INFO - Running evaluation cycle...
+2026-06-10 03:21:58 - engine - INFO - 
+Token-Level Evaluation Report (TRANSFORMER):
+2026-06-10 03:21:58 - engine - INFO - Overall Accuracy: 0.9437
+2026-06-10 03:21:58 - engine - INFO - Macro F1-Score: 0.7184
+2026-06-10 03:21:58 - engine - INFO - 
+Entity-Level BIO Evaluation Report (TRANSFORMER):
+2026-06-10 03:21:58 - engine - INFO - Overall F1-Score: 0.7918
+2026-06-10 03:21:58 - engine - INFO - 
+Detailed Entity Report (TRANSFORMER):
+                     precision    recall  f1-score   support
+
+                AGE       0.83      0.97      0.89       582
+               DATE       0.86      0.94      0.90      1654
+             GENDER       0.90      0.97      0.93       462
+                JOB       0.46      0.46      0.46       173
+           LOCATION       0.70      0.80      0.75      4441
+               NAME       0.88      0.73      0.80       318
+       ORGANIZATION       0.55      0.70      0.61       771
+         PATIENT_ID       0.91      0.92      0.91      2005
+SYMPTOM_AND_DISEASE       0.66      0.70      0.68      1136
+     TRANSPORTATION       0.81      0.77      0.79       193
+
+          micro avg       0.76      0.83      0.79     11735
+          macro avg       0.75      0.80      0.77     11735
+       weighted avg       0.76      0.83      0.79     11735
+
+2026-06-10 03:22:00 - engine - INFO - 
+==================================================
+BẮT ĐẦU ĐÁNH GIÁ MODEL: PHOBERT
+==================================================
+2026-06-10 03:22:02 - engine - INFO - Loading weights from checkpoint: /content/DEEPLEARNING/results/phobert/checkpoints/best_model.pt
+2026-06-10 03:22:09 - engine - INFO - Running evaluation cycle...
+2026-06-10 03:22:56 - engine - INFO - 
+Token-Level Evaluation Report (PHOBERT):
+2026-06-10 03:22:56 - engine - INFO - Overall Accuracy: 0.9825
+2026-06-10 03:22:56 - engine - INFO - Macro F1-Score: 0.8406
+2026-06-10 03:22:56 - engine - INFO - 
+Entity-Level BIO Evaluation Report (PHOBERT):
+2026-06-10 03:22:56 - engine - INFO - Overall F1-Score: 0.9497
+2026-06-10 03:22:56 - engine - INFO - 
+Detailed Entity Report (PHOBERT):
+                     precision    recall  f1-score   support
+
+                AGE       0.96      0.98      0.97       582
+               DATE       0.99      0.99      0.99      1654
+             GENDER       0.97      0.98      0.97       462
+                JOB       0.74      0.86      0.80       173
+           LOCATION       0.94      0.96      0.95      4441
+               NAME       0.92      0.95      0.94       318
+       ORGANIZATION       0.87      0.90      0.88       771
+         PATIENT_ID       0.97      0.99      0.98      2005
+SYMPTOM_AND_DISEASE       0.88      0.90      0.89      1136
+     TRANSPORTATION       0.95      0.97      0.96       193
+
+          micro avg       0.94      0.96      0.95     11735
+          macro avg       0.92      0.95      0.93     11735
+       weighted avg       0.94      0.96      0.95     11735
+
+2026-06-10 03:22:57 - engine - INFO - 
+==================================================
+BẮT ĐẦU ĐÁNH GIÁ MODEL: PHOBERT-LORA
+==================================================
+2026-06-10 03:22:59 - engine - INFO - Loading weights from checkpoint: /content/DEEPLEARNING/results/phobert-lora/checkpoints/best_model.pt
+2026-06-10 03:23:03 - engine - INFO - Running evaluation cycle...
+2026-06-10 03:23:54 - engine - INFO - 
+Token-Level Evaluation Report (PHOBERT-LORA):
+2026-06-10 03:23:54 - engine - INFO - Overall Accuracy: 0.9819
+2026-06-10 03:23:54 - engine - INFO - Macro F1-Score: 0.8351
+2026-06-10 03:23:54 - engine - INFO - 
+Entity-Level BIO Evaluation Report (PHOBERT-LORA):
+2026-06-10 03:23:54 - engine - INFO - Overall F1-Score: 0.9442
+2026-06-10 03:23:54 - engine - INFO - 
+Detailed Entity Report (PHOBERT-LORA):
+                     precision    recall  f1-score   support
+
+                AGE       0.92      0.98      0.95       582
+               DATE       0.98      0.99      0.99      1654
+             GENDER       0.92      0.99      0.95       462
+                JOB       0.66      0.82      0.73       173
+           LOCATION       0.94      0.96      0.95      4441
+               NAME       0.93      0.96      0.95       318
+       ORGANIZATION       0.88      0.88      0.88       771
+         PATIENT_ID       0.98      0.98      0.98      2005
+SYMPTOM_AND_DISEASE       0.88      0.89      0.88      1136
+     TRANSPORTATION       0.91      0.96      0.94       193
+
+          micro avg       0.93      0.96      0.94     11735
+          macro avg       0.90      0.94      0.92     11735
+       weighted avg       0.93      0.96      0.94     11735
+
